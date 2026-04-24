@@ -6,7 +6,7 @@ import { Brand } from "@/components/Brand";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, ChevronRight, Whistle, Dumbbell, Check } from "lucide-react";
+import { Loader2, ChevronRight, ClipboardList, Dumbbell, Check } from "lucide-react";
 import { toast } from "sonner";
 import type { Enums } from "@/integrations/supabase/types";
 
@@ -116,7 +116,7 @@ function OnboardingPage() {
 
             <div className="mt-10 grid sm:grid-cols-2 gap-4">
               <RoleCard
-                icon={<Whistle className="h-6 w-6" />}
+                icon={<ClipboardList className="h-6 w-6" />}
                 title="Sono un Coach"
                 description="Pianifico schede, gestisco team, monitoro carichi e infortuni delle atlete."
                 features={[
