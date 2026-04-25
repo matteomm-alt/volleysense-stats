@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState, FormEvent } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,7 +15,7 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Loader2, Users, Plus, Calendar, Construction } from "lucide-react";
+import { Loader2, Users, Plus, Calendar, Dumbbell, ChevronRight, ClipboardList, TrendingUp, HeartPulse } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -157,19 +157,73 @@ function AtletaHome() {
           )}
         </section>
 
-        <section className="mt-10">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-            Prossimamente
+        <section className="mt-10 space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Allenamento
           </h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <PlaceholderCard title="Schede del giorno" step="Step 5" />
-            <PlaceholderCard title="Registro seduta" step="Step 5" />
-            <PlaceholderCard title="Progressi" step="Step 5" />
-            <PlaceholderCard title="Infortuni" step="Step 6" />
+
+          {/* Registra seduta — attivo */}
+          <Link to={"/atleta/registro" as any}>
+            <div className="rounded-lg border bg-card p-4 flex items-center justify-between hover:bg-muted/50 transition-colors cursor-pointer group">
+              <div className="flex items-center gap-3">
+                <div className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 group-hover:bg-primary/15 transition-colors">
+                  <Dumbbell className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <div className="font-semibold text-sm">Registra seduta</div>
+                  <div className="text-xs text-muted-foreground">RPE, esercizi, carico</div>
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+            </div>
+          </Link>
+
+          {/* Schede — prossimamente */}
+          <div className="rounded-lg border bg-card p-4 flex items-center justify-between opacity-50 cursor-not-allowed">
+            <div className="flex items-center gap-3">
+              <div className="grid h-9 w-9 place-items-center rounded-full bg-secondary">
+                <ClipboardList className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div>
+                <div className="font-semibold text-sm">Schede del giorno</div>
+                <div className="text-xs text-muted-foreground">Esercizi assegnati dal coach</div>
+              </div>
+            </div>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground border rounded px-1.5 py-0.5">
+              Presto
+            </span>
           </div>
-          <div className="mt-6 rounded-lg border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground">
-            <Construction className="h-5 w-5 mx-auto mb-2" />
-            Le funzionalità di allenamento arriveranno nei prossimi step.
+
+          {/* Progressi — prossimamente */}
+          <div className="rounded-lg border bg-card p-4 flex items-center justify-between opacity-50 cursor-not-allowed">
+            <div className="flex items-center gap-3">
+              <div className="grid h-9 w-9 place-items-center rounded-full bg-secondary">
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div>
+                <div className="font-semibold text-sm">Progressi</div>
+                <div className="text-xs text-muted-foreground">Grafici e storico allenamenti</div>
+              </div>
+            </div>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground border rounded px-1.5 py-0.5">
+              Presto
+            </span>
+          </div>
+
+          {/* Infortuni — prossimamente */}
+          <div className="rounded-lg border bg-card p-4 flex items-center justify-between opacity-50 cursor-not-allowed">
+            <div className="flex items-center gap-3">
+              <div className="grid h-9 w-9 place-items-center rounded-full bg-secondary">
+                <HeartPulse className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div>
+                <div className="font-semibold text-sm">Infortuni</div>
+                <div className="text-xs text-muted-foreground">Registro e restrizioni</div>
+              </div>
+            </div>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground border rounded px-1.5 py-0.5">
+              Presto
+            </span>
           </div>
         </section>
       </main>
@@ -177,16 +231,6 @@ function AtletaHome() {
   );
 }
 
-function PlaceholderCard({ title, step }: { title: string; step: string }) {
-  return (
-    <div className="rounded-lg border bg-card p-4 flex items-center justify-between">
-      <span className="font-medium">{title}</span>
-      <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground border rounded px-1.5 py-0.5">
-        {step}
-      </span>
-    </div>
-  );
-}
 
 function JoinTeamDialog({ onJoined }: { onJoined: () => void }) {
   const [code, setCode] = useState("");
