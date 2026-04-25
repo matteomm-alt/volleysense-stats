@@ -21,6 +21,9 @@ import {
   Trash2,
   UserPlus,
   Calendar,
+  CalendarRange,
+  ClipboardList,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
@@ -175,8 +178,45 @@ function TeamDetailPage() {
           <p className="mt-4 text-sm text-muted-foreground max-w-2xl">{team.description}</p>
         )}
 
+        {/* Strumenti squadra */}
+        <section className="mt-8">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+            Gestione
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <a href={`/coach/team/${teamId}/periodi`}>
+              <div className="rounded-lg border bg-card p-4 flex items-center justify-between hover:bg-muted/50 transition-colors cursor-pointer group">
+                <div className="flex items-center gap-3">
+                  <div className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 group-hover:bg-primary/15 transition-colors">
+                    <CalendarRange className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-sm">Periodi & Schede</div>
+                    <div className="text-xs text-muted-foreground">Mesocicli e schede settimanali</div>
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+              </div>
+            </a>
+            <div className="rounded-lg border bg-card p-4 flex items-center justify-between opacity-50 cursor-not-allowed">
+              <div className="flex items-center gap-3">
+                <div className="grid h-9 w-9 place-items-center rounded-full bg-secondary">
+                  <ClipboardList className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div>
+                  <div className="font-semibold text-sm">Presenze</div>
+                  <div className="text-xs text-muted-foreground">Registro sessioni e appello</div>
+                </div>
+              </div>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground border rounded px-1.5 py-0.5">
+                Presto
+              </span>
+            </div>
+          </div>
+        </section>
+
         {/* Roster */}
-        <section className="mt-10">
+        <section className="mt-8">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
               Roster · <span className="font-mono">{members.length}</span>
