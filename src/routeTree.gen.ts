@@ -18,6 +18,8 @@ import { Route as CoachRouteImport } from './routes/coach'
 import { Route as AtletaRouteImport } from './routes/atleta'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CoachTeamTeamIdRouteImport } from './routes/coach.team.$teamId'
+import { Route as CoachTeamTeamIdPeriodiRouteImport } from './routes/coach.team.$teamId.periodi'
+import { Route as AtletaRegistroRouteImport } from './routes/atleta.registro'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -64,46 +66,63 @@ const CoachTeamTeamIdRoute = CoachTeamTeamIdRouteImport.update({
   path: '/team/$teamId',
   getParentRoute: () => CoachRoute,
 } as any)
+const CoachTeamTeamIdPeriodiRoute = CoachTeamTeamIdPeriodiRouteImport.update({
+  id: '/team/$teamId/periodi',
+  path: '/periodi',
+  getParentRoute: () => CoachTeamTeamIdRoute,
+} as any)
+const AtletaRegistroRoute = AtletaRegistroRouteImport.update({
+  id: '/atleta/registro',
+  path: '/registro',
+  getParentRoute: () => AtletaRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/atleta': typeof AtletaRoute
+  '/atleta/registro': typeof AtletaRegistroRoute
   '/coach': typeof CoachRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
-  '/coach/team/$teamId': typeof CoachTeamTeamIdRoute
+  '/coach/team/$teamId': typeof CoachTeamTeamIdRouteWithChildren
+  '/coach/team/$teamId/periodi': typeof CoachTeamTeamIdPeriodiRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/atleta': typeof AtletaRoute
+  '/atleta/registro': typeof AtletaRegistroRoute
   '/coach': typeof CoachRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
-  '/coach/team/$teamId': typeof CoachTeamTeamIdRoute
+  '/coach/team/$teamId': typeof CoachTeamTeamIdRouteWithChildren
+  '/coach/team/$teamId/periodi': typeof CoachTeamTeamIdPeriodiRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/atleta': typeof AtletaRoute
+  '/atleta/registro': typeof AtletaRegistroRoute
   '/coach': typeof CoachRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
-  '/coach/team/$teamId': typeof CoachTeamTeamIdRoute
+  '/coach/team/$teamId': typeof CoachTeamTeamIdRouteWithChildren
+  '/coach/team/$teamId/periodi': typeof CoachTeamTeamIdPeriodiRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/atleta'
+    | '/atleta/registro'
     | '/coach'
     | '/forgot-password'
     | '/login'
@@ -111,10 +130,12 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/coach/team/$teamId'
+    | '/coach/team/$teamId/periodi'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/atleta'
+    | '/atleta/registro'
     | '/coach'
     | '/forgot-password'
     | '/login'
@@ -122,10 +143,12 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/coach/team/$teamId'
+    | '/coach/team/$teamId/periodi'
   id:
     | '__root__'
     | '/'
     | '/atleta'
+    | '/atleta/registro'
     | '/coach'
     | '/forgot-password'
     | '/login'
@@ -133,11 +156,12 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/coach/team/$teamId'
+    | '/coach/team/$teamId/periodi'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AtletaRoute: typeof AtletaRoute
+  AtletaRoute: typeof AtletaRouteWithChildren
   CoachRoute: typeof CoachRouteWithChildren
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
@@ -211,22 +235,56 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CoachTeamTeamIdRouteImport
       parentRoute: typeof CoachRoute
     }
+    '/coach/team/$teamId/periodi': {
+      id: '/coach/team/$teamId/periodi'
+      path: '/periodi'
+      fullPath: '/coach/team/$teamId/periodi'
+      preLoaderRoute: typeof CoachTeamTeamIdPeriodiRouteImport
+      parentRoute: typeof CoachTeamTeamIdRoute
+    }
+    '/atleta/registro': {
+      id: '/atleta/registro'
+      path: '/registro'
+      fullPath: '/atleta/registro'
+      preLoaderRoute: typeof AtletaRegistroRouteImport
+      parentRoute: typeof AtletaRoute
+    }
   }
 }
 
+interface CoachTeamTeamIdRouteChildren {
+  CoachTeamTeamIdPeriodiRoute: typeof CoachTeamTeamIdPeriodiRoute
+}
+
+const CoachTeamTeamIdRouteChildren: CoachTeamTeamIdRouteChildren = {
+  CoachTeamTeamIdPeriodiRoute: CoachTeamTeamIdPeriodiRoute,
+}
+
+const CoachTeamTeamIdRouteWithChildren = CoachTeamTeamIdRoute._addFileChildren(CoachTeamTeamIdRouteChildren)
+
 interface CoachRouteChildren {
-  CoachTeamTeamIdRoute: typeof CoachTeamTeamIdRoute
+  CoachTeamTeamIdRoute: typeof CoachTeamTeamIdRouteWithChildren
 }
 
 const CoachRouteChildren: CoachRouteChildren = {
-  CoachTeamTeamIdRoute: CoachTeamTeamIdRoute,
+  CoachTeamTeamIdRoute: CoachTeamTeamIdRouteWithChildren,
 }
 
 const CoachRouteWithChildren = CoachRoute._addFileChildren(CoachRouteChildren)
 
+interface AtletaRouteChildren {
+  AtletaRegistroRoute: typeof AtletaRegistroRoute
+}
+
+const AtletaRouteChildren: AtletaRouteChildren = {
+  AtletaRegistroRoute: AtletaRegistroRoute,
+}
+
+const AtletaRouteWithChildren = AtletaRoute._addFileChildren(AtletaRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AtletaRoute: AtletaRoute,
+  AtletaRoute: AtletaRouteWithChildren,
   CoachRoute: CoachRouteWithChildren,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
