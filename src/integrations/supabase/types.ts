@@ -648,6 +648,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          invite_code: string
           name: string
           owner_coach_id: string
           season: string | null
@@ -658,6 +659,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          invite_code?: string
           name: string
           owner_coach_id: string
           season?: string | null
@@ -668,6 +670,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          invite_code?: string
           name?: string
           owner_coach_id?: string
           season?: string | null
@@ -705,6 +708,7 @@ export type Database = {
         Args: { _athlete_id: string; _coach_id: string }
         Returns: boolean
       }
+      generate_invite_code: { Args: never; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -728,6 +732,7 @@ export type Database = {
         Args: { _team_id: string; _user_id: string }
         Returns: boolean
       }
+      join_team_with_code: { Args: { _code: string }; Returns: string }
       scheda_team_id: { Args: { _scheda_id: string }; Returns: string }
       session_athlete_id: { Args: { _session_id: string }; Returns: string }
       session_team_id: { Args: { _session_id: string }; Returns: string }
