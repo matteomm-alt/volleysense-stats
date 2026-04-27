@@ -17,9 +17,9 @@ import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as CoachRouteImport } from './routes/coach'
 import { Route as AtletaRouteImport } from './routes/atleta'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AtletaRegistroRouteImport } from './routes/atleta.registro'
 import { Route as CoachTeamTeamIdRouteImport } from './routes/coach.team.$teamId'
 import { Route as CoachTeamTeamIdPeriodiRouteImport } from './routes/coach.team.$teamId.periodi'
-import { Route as AtletaRegistroRouteImport } from './routes/atleta.registro'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -61,59 +61,59 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AtletaRegistroRoute = AtletaRegistroRouteImport.update({
+  id: '/registro',
+  path: '/registro',
+  getParentRoute: () => AtletaRoute,
+} as any)
 const CoachTeamTeamIdRoute = CoachTeamTeamIdRouteImport.update({
   id: '/team/$teamId',
   path: '/team/$teamId',
   getParentRoute: () => CoachRoute,
 } as any)
 const CoachTeamTeamIdPeriodiRoute = CoachTeamTeamIdPeriodiRouteImport.update({
-  id: '/team/$teamId/periodi',
+  id: '/periodi',
   path: '/periodi',
   getParentRoute: () => CoachTeamTeamIdRoute,
-} as any)
-const AtletaRegistroRoute = AtletaRegistroRouteImport.update({
-  id: '/atleta/registro',
-  path: '/registro',
-  getParentRoute: () => AtletaRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/atleta': typeof AtletaRoute
-  '/atleta/registro': typeof AtletaRegistroRoute
+  '/atleta': typeof AtletaRouteWithChildren
   '/coach': typeof CoachRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/atleta/registro': typeof AtletaRegistroRoute
   '/coach/team/$teamId': typeof CoachTeamTeamIdRouteWithChildren
   '/coach/team/$teamId/periodi': typeof CoachTeamTeamIdPeriodiRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/atleta': typeof AtletaRoute
-  '/atleta/registro': typeof AtletaRegistroRoute
+  '/atleta': typeof AtletaRouteWithChildren
   '/coach': typeof CoachRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/atleta/registro': typeof AtletaRegistroRoute
   '/coach/team/$teamId': typeof CoachTeamTeamIdRouteWithChildren
   '/coach/team/$teamId/periodi': typeof CoachTeamTeamIdPeriodiRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/atleta': typeof AtletaRoute
-  '/atleta/registro': typeof AtletaRegistroRoute
+  '/atleta': typeof AtletaRouteWithChildren
   '/coach': typeof CoachRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/atleta/registro': typeof AtletaRegistroRoute
   '/coach/team/$teamId': typeof CoachTeamTeamIdRouteWithChildren
   '/coach/team/$teamId/periodi': typeof CoachTeamTeamIdPeriodiRoute
 }
@@ -122,39 +122,39 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/atleta'
-    | '/atleta/registro'
     | '/coach'
     | '/forgot-password'
     | '/login'
     | '/onboarding'
     | '/reset-password'
     | '/signup'
+    | '/atleta/registro'
     | '/coach/team/$teamId'
     | '/coach/team/$teamId/periodi'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/atleta'
-    | '/atleta/registro'
     | '/coach'
     | '/forgot-password'
     | '/login'
     | '/onboarding'
     | '/reset-password'
     | '/signup'
+    | '/atleta/registro'
     | '/coach/team/$teamId'
     | '/coach/team/$teamId/periodi'
   id:
     | '__root__'
     | '/'
     | '/atleta'
-    | '/atleta/registro'
     | '/coach'
     | '/forgot-password'
     | '/login'
     | '/onboarding'
     | '/reset-password'
     | '/signup'
+    | '/atleta/registro'
     | '/coach/team/$teamId'
     | '/coach/team/$teamId/periodi'
   fileRoutesById: FileRoutesById
@@ -228,6 +228,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/atleta/registro': {
+      id: '/atleta/registro'
+      path: '/registro'
+      fullPath: '/atleta/registro'
+      preLoaderRoute: typeof AtletaRegistroRouteImport
+      parentRoute: typeof AtletaRoute
+    }
     '/coach/team/$teamId': {
       id: '/coach/team/$teamId'
       path: '/team/$teamId'
@@ -242,15 +249,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CoachTeamTeamIdPeriodiRouteImport
       parentRoute: typeof CoachTeamTeamIdRoute
     }
-    '/atleta/registro': {
-      id: '/atleta/registro'
-      path: '/registro'
-      fullPath: '/atleta/registro'
-      preLoaderRoute: typeof AtletaRegistroRouteImport
-      parentRoute: typeof AtletaRoute
-    }
   }
 }
+
+interface AtletaRouteChildren {
+  AtletaRegistroRoute: typeof AtletaRegistroRoute
+}
+
+const AtletaRouteChildren: AtletaRouteChildren = {
+  AtletaRegistroRoute: AtletaRegistroRoute,
+}
+
+const AtletaRouteWithChildren =
+  AtletaRoute._addFileChildren(AtletaRouteChildren)
 
 interface CoachTeamTeamIdRouteChildren {
   CoachTeamTeamIdPeriodiRoute: typeof CoachTeamTeamIdPeriodiRoute
@@ -260,7 +271,9 @@ const CoachTeamTeamIdRouteChildren: CoachTeamTeamIdRouteChildren = {
   CoachTeamTeamIdPeriodiRoute: CoachTeamTeamIdPeriodiRoute,
 }
 
-const CoachTeamTeamIdRouteWithChildren = CoachTeamTeamIdRoute._addFileChildren(CoachTeamTeamIdRouteChildren)
+const CoachTeamTeamIdRouteWithChildren = CoachTeamTeamIdRoute._addFileChildren(
+  CoachTeamTeamIdRouteChildren,
+)
 
 interface CoachRouteChildren {
   CoachTeamTeamIdRoute: typeof CoachTeamTeamIdRouteWithChildren
@@ -271,16 +284,6 @@ const CoachRouteChildren: CoachRouteChildren = {
 }
 
 const CoachRouteWithChildren = CoachRoute._addFileChildren(CoachRouteChildren)
-
-interface AtletaRouteChildren {
-  AtletaRegistroRoute: typeof AtletaRegistroRoute
-}
-
-const AtletaRouteChildren: AtletaRouteChildren = {
-  AtletaRegistroRoute: AtletaRegistroRoute,
-}
-
-const AtletaRouteWithChildren = AtletaRoute._addFileChildren(AtletaRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
