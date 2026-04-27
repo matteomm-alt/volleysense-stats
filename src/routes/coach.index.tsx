@@ -30,7 +30,7 @@ import type { Tables } from "@/integrations/supabase/types";
 
 type Team = Tables<"teams"> & { _athletesCount?: number };
 
-export const Route = createFileRoute("/coach")({
+export const Route = createFileRoute("/coach/")({
   component: CoachHome,
 });
 
