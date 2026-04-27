@@ -732,6 +732,10 @@ export type Database = {
         Args: { _team_id: string; _user_id: string }
         Returns: boolean
       }
+      is_team_member_direct: {
+        Args: { _team_id: string; _user_id: string }
+        Returns: boolean
+      }
       join_team_with_code: { Args: { _code: string }; Returns: string }
       scheda_team_id: { Args: { _scheda_id: string }; Returns: string }
       session_athlete_id: { Args: { _session_id: string }; Returns: string }
