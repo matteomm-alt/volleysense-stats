@@ -21,6 +21,7 @@ import { Route as CoachIndexRouteImport } from './routes/coach.index'
 import { Route as AtletaRegistroRouteImport } from './routes/atleta.registro'
 import { Route as CoachTeamTeamIdRouteImport } from './routes/coach.team.$teamId'
 import { Route as CoachTeamTeamIdPeriodiRouteImport } from './routes/coach.team.$teamId.periodi'
+import { Route as CoachTeamTeamIdSchedeSchedaIdRouteImport } from './routes/coach.team.$teamId.schede.$schedaId'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -82,6 +83,12 @@ const CoachTeamTeamIdPeriodiRoute = CoachTeamTeamIdPeriodiRouteImport.update({
   path: '/periodi',
   getParentRoute: () => CoachTeamTeamIdRoute,
 } as any)
+const CoachTeamTeamIdSchedeSchedaIdRoute =
+  CoachTeamTeamIdSchedeSchedaIdRouteImport.update({
+    id: '/schede/$schedaId',
+    path: '/schede/$schedaId',
+    getParentRoute: () => CoachTeamTeamIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -96,6 +103,7 @@ export interface FileRoutesByFullPath {
   '/coach/': typeof CoachIndexRoute
   '/coach/team/$teamId': typeof CoachTeamTeamIdRouteWithChildren
   '/coach/team/$teamId/periodi': typeof CoachTeamTeamIdPeriodiRoute
+  '/coach/team/$teamId/schede/$schedaId': typeof CoachTeamTeamIdSchedeSchedaIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -109,6 +117,7 @@ export interface FileRoutesByTo {
   '/coach': typeof CoachIndexRoute
   '/coach/team/$teamId': typeof CoachTeamTeamIdRouteWithChildren
   '/coach/team/$teamId/periodi': typeof CoachTeamTeamIdPeriodiRoute
+  '/coach/team/$teamId/schede/$schedaId': typeof CoachTeamTeamIdSchedeSchedaIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -124,6 +133,7 @@ export interface FileRoutesById {
   '/coach/': typeof CoachIndexRoute
   '/coach/team/$teamId': typeof CoachTeamTeamIdRouteWithChildren
   '/coach/team/$teamId/periodi': typeof CoachTeamTeamIdPeriodiRoute
+  '/coach/team/$teamId/schede/$schedaId': typeof CoachTeamTeamIdSchedeSchedaIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -140,6 +150,7 @@ export interface FileRouteTypes {
     | '/coach/'
     | '/coach/team/$teamId'
     | '/coach/team/$teamId/periodi'
+    | '/coach/team/$teamId/schede/$schedaId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -153,6 +164,7 @@ export interface FileRouteTypes {
     | '/coach'
     | '/coach/team/$teamId'
     | '/coach/team/$teamId/periodi'
+    | '/coach/team/$teamId/schede/$schedaId'
   id:
     | '__root__'
     | '/'
@@ -167,6 +179,7 @@ export interface FileRouteTypes {
     | '/coach/'
     | '/coach/team/$teamId'
     | '/coach/team/$teamId/periodi'
+    | '/coach/team/$teamId/schede/$schedaId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -266,6 +279,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CoachTeamTeamIdPeriodiRouteImport
       parentRoute: typeof CoachTeamTeamIdRoute
     }
+    '/coach/team/$teamId/schede/$schedaId': {
+      id: '/coach/team/$teamId/schede/$schedaId'
+      path: '/schede/$schedaId'
+      fullPath: '/coach/team/$teamId/schede/$schedaId'
+      preLoaderRoute: typeof CoachTeamTeamIdSchedeSchedaIdRouteImport
+      parentRoute: typeof CoachTeamTeamIdRoute
+    }
   }
 }
 
@@ -282,10 +302,12 @@ const AtletaRouteWithChildren =
 
 interface CoachTeamTeamIdRouteChildren {
   CoachTeamTeamIdPeriodiRoute: typeof CoachTeamTeamIdPeriodiRoute
+  CoachTeamTeamIdSchedeSchedaIdRoute: typeof CoachTeamTeamIdSchedeSchedaIdRoute
 }
 
 const CoachTeamTeamIdRouteChildren: CoachTeamTeamIdRouteChildren = {
   CoachTeamTeamIdPeriodiRoute: CoachTeamTeamIdPeriodiRoute,
+  CoachTeamTeamIdSchedeSchedaIdRoute: CoachTeamTeamIdSchedeSchedaIdRoute,
 }
 
 const CoachTeamTeamIdRouteWithChildren = CoachTeamTeamIdRoute._addFileChildren(
@@ -317,3 +339,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
