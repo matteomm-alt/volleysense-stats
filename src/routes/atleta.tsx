@@ -178,21 +178,21 @@ function AtletaHome() {
             </div>
           </Link>
 
-          {/* Schede — prossimamente */}
-          <div className="rounded-lg border bg-card p-4 flex items-center justify-between opacity-50 cursor-not-allowed">
-            <div className="flex items-center gap-3">
-              <div className="grid h-9 w-9 place-items-center rounded-full bg-secondary">
-                <ClipboardList className="h-4 w-4 text-muted-foreground" />
+          {/* Schede — attivo */}
+          <Link to={"/atleta/schede" as any}>
+            <div className="rounded-lg border bg-card p-4 flex items-center justify-between hover:bg-muted/50 transition-colors cursor-pointer group">
+              <div className="flex items-center gap-3">
+                <div className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 group-hover:bg-primary/15 transition-colors">
+                  <ClipboardList className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <div className="font-semibold text-sm">Schede del giorno</div>
+                  <div className="text-xs text-muted-foreground">Esercizi assegnati dal coach</div>
+                </div>
               </div>
-              <div>
-                <div className="font-semibold text-sm">Schede del giorno</div>
-                <div className="text-xs text-muted-foreground">Esercizi assegnati dal coach</div>
-              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
             </div>
-            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground border rounded px-1.5 py-0.5">
-              Presto
-            </span>
-          </div>
+          </Link>
 
           {/* Progressi — prossimamente */}
           <div className="rounded-lg border bg-card p-4 flex items-center justify-between opacity-50 cursor-not-allowed">
