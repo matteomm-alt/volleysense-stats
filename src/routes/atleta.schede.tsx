@@ -66,7 +66,7 @@ function AtletaSchedePage() {
 
         const { data: periodi } = await supabase
           .from("periodi")
-          .select("id, title")
+          .select("id, name")
           .eq("team_id", team.id)
           .lte("start_date", today)
           .gte("end_date", today);
@@ -98,7 +98,7 @@ function AtletaSchedePage() {
               id: scheda.id,
               title: scheda.title,
               description: scheda.description,
-              periodo_title: periodo.title,
+              periodo_title: periodo.name,
               team_name: team.name,
               esercizi: (righe ?? []).map((r) => ({
                 id: r.id,
