@@ -18,6 +18,7 @@ import { Route as CoachRouteImport } from './routes/coach'
 import { Route as AtletaRouteImport } from './routes/atleta'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CoachIndexRouteImport } from './routes/coach.index'
+import { Route as AtletaSchedeRouteImport } from './routes/atleta.schede'
 import { Route as AtletaRegistroRouteImport } from './routes/atleta.registro'
 import { Route as CoachTeamTeamIdRouteImport } from './routes/coach.team.$teamId'
 import { Route as CoachTeamTeamIdPeriodiRouteImport } from './routes/coach.team.$teamId.periodi'
@@ -68,6 +69,11 @@ const CoachIndexRoute = CoachIndexRouteImport.update({
   path: '/',
   getParentRoute: () => CoachRoute,
 } as any)
+const AtletaSchedeRoute = AtletaSchedeRouteImport.update({
+  id: '/schede',
+  path: '/schede',
+  getParentRoute: () => AtletaRoute,
+} as any)
 const AtletaRegistroRoute = AtletaRegistroRouteImport.update({
   id: '/registro',
   path: '/registro',
@@ -100,6 +106,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/atleta/registro': typeof AtletaRegistroRoute
+  '/atleta/schede': typeof AtletaSchedeRoute
   '/coach/': typeof CoachIndexRoute
   '/coach/team/$teamId': typeof CoachTeamTeamIdRouteWithChildren
   '/coach/team/$teamId/periodi': typeof CoachTeamTeamIdPeriodiRoute
@@ -114,6 +121,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/atleta/registro': typeof AtletaRegistroRoute
+  '/atleta/schede': typeof AtletaSchedeRoute
   '/coach': typeof CoachIndexRoute
   '/coach/team/$teamId': typeof CoachTeamTeamIdRouteWithChildren
   '/coach/team/$teamId/periodi': typeof CoachTeamTeamIdPeriodiRoute
@@ -130,6 +138,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/atleta/registro': typeof AtletaRegistroRoute
+  '/atleta/schede': typeof AtletaSchedeRoute
   '/coach/': typeof CoachIndexRoute
   '/coach/team/$teamId': typeof CoachTeamTeamIdRouteWithChildren
   '/coach/team/$teamId/periodi': typeof CoachTeamTeamIdPeriodiRoute
@@ -147,6 +156,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/atleta/registro'
+    | '/atleta/schede'
     | '/coach/'
     | '/coach/team/$teamId'
     | '/coach/team/$teamId/periodi'
@@ -161,6 +171,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/atleta/registro'
+    | '/atleta/schede'
     | '/coach'
     | '/coach/team/$teamId'
     | '/coach/team/$teamId/periodi'
@@ -176,6 +187,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/atleta/registro'
+    | '/atleta/schede'
     | '/coach/'
     | '/coach/team/$teamId'
     | '/coach/team/$teamId/periodi'
@@ -258,6 +270,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CoachIndexRouteImport
       parentRoute: typeof CoachRoute
     }
+    '/atleta/schede': {
+      id: '/atleta/schede'
+      path: '/schede'
+      fullPath: '/atleta/schede'
+      preLoaderRoute: typeof AtletaSchedeRouteImport
+      parentRoute: typeof AtletaRoute
+    }
     '/atleta/registro': {
       id: '/atleta/registro'
       path: '/registro'
@@ -291,10 +310,12 @@ declare module '@tanstack/react-router' {
 
 interface AtletaRouteChildren {
   AtletaRegistroRoute: typeof AtletaRegistroRoute
+  AtletaSchedeRoute: typeof AtletaSchedeRoute
 }
 
 const AtletaRouteChildren: AtletaRouteChildren = {
   AtletaRegistroRoute: AtletaRegistroRoute,
+  AtletaSchedeRoute: AtletaSchedeRoute,
 }
 
 const AtletaRouteWithChildren =
@@ -339,12 +360,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
