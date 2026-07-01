@@ -1,4 +1,0 @@
-name = "volleysense-stats"
-compatibility_date = "2025-09-24"
-compatibility_flags = ["nodejs_compat"]
-pages_build_output_dir = ".output/public"
