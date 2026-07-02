@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, ChevronLeft, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/coach/team/$teamId/presenze")({
+export const Route = createFileRoute("/coach/team/presenze")({
   component: PresenzeCoachPage,
 });
 
