@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, ChevronLeft, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/coach/team/presenze")({
+export const Route = createFileRoute("/coach/team/$teamId/presenze")({
   component: PresenzeCoachPage,
 });
 
@@ -99,7 +99,7 @@ function PresenzeCoachPage() {
       team_id: teamId,
       athlete_id: a.id,
       session_date: formDate,
-      status: selected.has(a.id) ? "presente" : "assente",
+      status: (selected.has(a.id) ? "presente" : "assente") as "presente" | "assente",
       recorded_by: session!.user.id,
     }));
 
@@ -147,7 +147,7 @@ function PresenzeCoachPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppHeader profile={profile} role={role} onSignOut={signOut} />
+      <AppHeader name={profile.full_name ?? "Coach"} role={role} onSignOut={signOut} />
       <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
         <Link
           to="/coach/team/$teamId"
