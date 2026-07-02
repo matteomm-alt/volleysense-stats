@@ -2,15 +2,14 @@
 @source "../src";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
-
 /*
  * VolleyStrength Bellaria — design system
  * Stile: pulito, professionale, sportivo (Linear/Notion adattato).
  * Light primario, dark optional. Numeri in mono per dati di allenamento.
+ * Web fonts are loaded via <link> in src/routes/__root.tsx.
  */
 
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
