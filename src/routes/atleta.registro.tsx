@@ -192,26 +192,34 @@ function RegistroPage() {
 
       // 2. Inserisci set_logs per ogni esercizio
       if (exercises.length) {
-        // Per ogni esercizio, cerchiamo se esiste nel catalogo altrimenti creiamo un id fittizio
-        const logs = exercises.map((ex) => ({
-          session_id: sess.id,
-          esercizio_id: crypto.randomUUID(), // sarà referenziato correttamente quando avremo catalogo
-          scheda_esercizio_id: null,
-          reps: ex.reps ? parseInt(ex.reps) : null,
-          load_value: ex.load ? parseFloat(ex.load) : null,
-          load_unit: ex.unit || "kg",
-          rpe: ex.rpe ? parseFloat(ex.rpe) : null,
-          notes: [ex.name, ex.notes].filter(Boolean).join(" — ") || null,
-          completed: true,
-        }));
+        // Per ogni esercizio: cerca nel catalogo per nome, se non esiste lo crea
+        const esercizioIds: Record<string, string> = {};
+        for (const ex of exercises) {
+          const name = ex.name.trim();
+          if (!name) continue;
+          // Cerca nel catalogo
+          const { data: found } = await supabase
+            .from("esercizi_catalogo")
+            .select("id")
+            .ilike("name", name)
+            .maybeSingle();
+          if (found) {
+            esercizioIds[ex.id] = found.id;
+          } else {
+            // Crea esercizio libero nel catalogo
+            const { data: created } = await supabase
+              .from("esercizi_catalogo")
+              .insert({ name, is_public: false, created_by: session.user.id })
+              .select("id")
+              .single();
+            if (created) esercizioIds[ex.id] = created.id;
+          }
+        }
 
-        // Inseriamo una riga per serie, con il nome esercizio nelle note
-        // (il catalogo esercizi verrà collegato nello step catalogo)
         const setLogsPayload = exercises.flatMap((ex) =>
           Array.from({ length: parseInt(ex.sets) || 1 }, (_, i) => ({
             session_id: sess.id,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            esercizio_id: ex.id as any,
+            esercizio_id: esercizioIds[ex.id] ?? null,
             scheda_esercizio_id: null as string | null,
             reps: ex.reps ? parseInt(ex.reps) : null,
             load_value: ex.load ? parseFloat(ex.load) : null,
@@ -221,10 +229,10 @@ function RegistroPage() {
               ? [ex.name, ex.notes].filter(Boolean).join(" — ") || null
               : ex.name || null,
             completed: true,
+            set_number: i + 1,
           }))
         );
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error: logsErr } = await (supabase.from("set_logs") as any).insert(setLogsPayload);
+        const { error: logsErr } = await supabase.from("set_logs").insert(setLogsPayload);
         if (logsErr) throw logsErr;
       }
 
