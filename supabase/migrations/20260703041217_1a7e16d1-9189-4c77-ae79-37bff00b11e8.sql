@@ -1,0 +1,1 @@
+ALTER TABLE public.esercizi_catalogo ADD CONSTRAINT esercizi_catalogo_name_unique UNIQUE (name);
