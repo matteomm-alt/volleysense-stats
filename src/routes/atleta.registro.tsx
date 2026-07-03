@@ -229,6 +229,7 @@ function RegistroPage() {
               ? [ex.name, ex.notes].filter(Boolean).join(" — ") || null
               : ex.name || null,
             completed: true,
+            set_number: i + 1,
           }))
         );
         const { error: logsErr } = await supabase.from("set_logs").insert(setLogsPayload);
