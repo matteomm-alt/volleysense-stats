@@ -192,31 +192,54 @@ function RegistroPage() {
 
       // 2. Inserisci set_logs per ogni esercizio
       if (exercises.length) {
-        // Per ogni esercizio: cerca nel catalogo per nome, se non esiste lo crea
+        // Lookup + insert batch nel catalogo, evitando N+1
         const esercizioIds: Record<string, string> = {};
-        for (const ex of exercises) {
-          const name = ex.name.trim();
-          if (!name) continue;
-          // Cerca nel catalogo
-          const { data: found } = await supabase
+        const validExercises = exercises.filter((ex) => ex.name.trim().length > 0);
+        const uniqueNames = Array.from(
+          new Set(validExercises.map((ex) => ex.name.trim()))
+        );
+
+        if (uniqueNames.length) {
+          // 1 query: cerca tutti i nomi esistenti in catalogo
+          const { data: existing, error: findErr } = await supabase
             .from("esercizi_catalogo")
-            .select("id")
-            .ilike("name", name)
-            .maybeSingle();
-          if (found) {
-            esercizioIds[ex.id] = found.id;
-          } else {
-            // Crea esercizio libero nel catalogo
-            const { data: created } = await supabase
+            .select("id, name")
+            .in("name", uniqueNames);
+          if (findErr) throw findErr;
+
+          const byLowerName = new Map<string, string>();
+          (existing ?? []).forEach((row) => {
+            byLowerName.set(row.name.toLowerCase(), row.id);
+          });
+
+          // Nomi mancanti → 1 sola insert batch
+          const missingNames = uniqueNames.filter(
+            (n) => !byLowerName.has(n.toLowerCase())
+          );
+          if (missingNames.length) {
+            const { data: created, error: insErr } = await supabase
               .from("esercizi_catalogo")
-              .insert({ name, is_public: false, created_by: session.user.id })
-              .select("id")
-              .single();
-            if (created) esercizioIds[ex.id] = created.id;
+              .insert(
+                missingNames.map((name) => ({
+                  name,
+                  is_public: false,
+                  created_by: session.user.id,
+                }))
+              )
+              .select("id, name");
+            if (insErr) throw insErr;
+            (created ?? []).forEach((row) => {
+              byLowerName.set(row.name.toLowerCase(), row.id);
+            });
           }
+
+          validExercises.forEach((ex) => {
+            const id = byLowerName.get(ex.name.trim().toLowerCase());
+            if (id) esercizioIds[ex.id] = id;
+          });
         }
 
-        const setLogsPayload = exercises.flatMap((ex) =>
+        const setLogsPayload = validExercises.flatMap((ex) =>
           Array.from({ length: parseInt(ex.sets) || 1 }, (_, i) => ({
             session_id: sess.id,
             esercizio_id: esercizioIds[ex.id] ?? null,
