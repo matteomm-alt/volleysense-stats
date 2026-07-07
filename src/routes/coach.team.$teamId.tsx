@@ -184,7 +184,7 @@ function TeamDetailPage() {
             Gestione
           </h2>
           <div className="grid gap-3 sm:grid-cols-2">
-            <a href={`/coach/team/${teamId}/periodi`}>
+            <Link to="/coach/team/$teamId/periodi" params={{ teamId }}>
               <div className="rounded-lg border bg-card p-4 flex items-center justify-between hover:bg-muted/50 transition-colors cursor-pointer group">
                 <div className="flex items-center gap-3">
                   <div className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 group-hover:bg-primary/15 transition-colors">
@@ -197,8 +197,8 @@ function TeamDetailPage() {
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
               </div>
-            </a>
-            <a href={`/coach/team/${teamId}/presenze`}>
+            </Link>
+            <Link to="/coach/team/$teamId/presenze" params={{ teamId }}>
               <div className="rounded-lg border bg-card p-4 flex items-center justify-between hover:bg-muted/50 transition-colors cursor-pointer group">
                 <div className="flex items-center gap-3">
                   <div className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 group-hover:bg-primary/15 transition-colors">
@@ -211,7 +211,7 @@ function TeamDetailPage() {
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
               </div>
-            </a>
+            </Link>
           </div>
         </section>
 
