@@ -37,6 +37,14 @@ export const Route = createFileRoute("/coach/team/$teamId")({
   component: TeamDetailLayout,
 });
 
+function TeamDetailLayout() {
+  const { teamId } = Route.useParams();
+  const pathname = window.location.pathname;
+  const isIndex = pathname === `/coach/team/${teamId}` || pathname === `/coach/team/${teamId}/`;
+  if (isIndex) return <TeamDetailPage />;
+  return <Outlet />;
+}
+
 function TeamDetailPage() {
   const { teamId } = Route.useParams();
   const { loading, session, profile, role, signOut } = useAuth();
