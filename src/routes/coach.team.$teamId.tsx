@@ -41,7 +41,7 @@ function TeamDetailLayout() {
   return <Outlet />;
 }
 
-function TeamDetailPage() {
+export function TeamDetailPage() {
   const { teamId } = Route.useParams();
   const { loading, session, profile, role, signOut } = useAuth();
   const navigate = useNavigate();
