@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link, Outlet } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,8 +34,16 @@ type Member = Tables<"team_members"> & {
 };
 
 export const Route = createFileRoute("/coach/team/$teamId")({
-  component: TeamDetailPage,
+  component: TeamDetailLayout,
 });
+
+function TeamDetailLayout() {
+  const { teamId } = Route.useParams();
+  const pathname = window.location.pathname;
+  const isIndex = pathname === `/coach/team/${teamId}` || pathname === `/coach/team/${teamId}/`;
+  if (isIndex) return <TeamDetailPage />;
+  return <Outlet />;
+}
 
 function TeamDetailPage() {
   const { teamId } = Route.useParams();
