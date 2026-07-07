@@ -38,10 +38,6 @@ export const Route = createFileRoute("/coach/team/$teamId")({
 });
 
 function TeamDetailLayout() {
-  const { teamId } = Route.useParams();
-  const pathname = window.location.pathname;
-  const isIndex = pathname === `/coach/team/${teamId}` || pathname === `/coach/team/${teamId}/`;
-  if (isIndex) return <TeamDetailPage />;
   return <Outlet />;
 }
 
