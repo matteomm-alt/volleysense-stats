@@ -402,6 +402,7 @@ export type Database = {
       }
       schede: {
         Row: {
+          athlete_id: string | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -414,6 +415,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          athlete_id?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -426,6 +428,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          athlete_id?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null

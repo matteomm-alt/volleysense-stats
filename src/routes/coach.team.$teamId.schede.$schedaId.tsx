@@ -22,17 +22,54 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, ChevronLeft, Plus, Trash2, Dumbbell, Search } from "lucide-react";
+import {
+  Loader2,
+  ChevronLeft,
+  Plus,
+  Trash2,
+  Dumbbell,
+  Search,
+  Pencil,
+} from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 
-type Scheda = Tables<"schede">;
+type Scheda = Tables<"schede"> & { athlete_id?: string | null };
 type Esercizio = Tables<"esercizi_catalogo">;
+type EsercizioMeta = {
+  name: string;
+  category?: string | null;
+  muscle_group?: string | null;
+};
 type SchedaEsercizio = Tables<"scheda_esercizi"> & {
-  esercizio?: { name: string } | null;
+  esercizio?: EsercizioMeta | null;
 };
 
 const UNIT_OPTIONS = ["kg", "lb", "%1RM", "RPE", "BW", "sec"] as const;
+
+const TIPO_SCHEDA_OPTIONS = [
+  "Lower Body",
+  "Upper Body",
+  "Full Body",
+  "Core & Stabilità",
+  "Potenza",
+  "Recupero Attivo",
+] as const;
+
+const CATEGORIES: { value: string; label: string; color: string }[] = [
+  { value: "arti_inferiori", label: "Arti inferiori", color: "#3B82F6" },
+  { value: "arti_superiori", label: "Arti superiori", color: "#8B5CF6" },
+  { value: "full_body", label: "Full body", color: "#F59E0B" },
+  { value: "core", label: "Core", color: "#10B981" },
+  { value: "potenza", label: "Potenza", color: "#EF4444" },
+  { value: "prevenzione", label: "Prevenzione", color: "#06B6D4" },
+  { value: "mobilita", label: "Mobilità", color: "#EC4899" },
+  { value: "recupero", label: "Recupero", color: "#6B7280" },
+  { value: "riscaldamento", label: "Riscaldamento", color: "#F97316" },
+];
+const CAT_MAP = new Map(CATEGORIES.map((c) => [c.value, c]));
+
+type TeamAthlete = { id: string; full_name: string | null };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const Route = (createFileRoute as any)(
@@ -50,6 +87,8 @@ function SchedaDetailPage() {
   const [rows, setRows] = useState<SchedaEsercizio[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
+  const [athletes, setAthletes] = useState<TeamAthlete[]>([]);
+  const [editingRow, setEditingRow] = useState<SchedaEsercizio | null>(null);
 
   useEffect(() => {
     if (loading) return;
@@ -73,16 +112,22 @@ function SchedaDetailPage() {
       setLoadingData(false);
       return;
     }
-    setScheda(s);
+    setScheda(s as Scheda | null);
 
     const ids = (se ?? []).map((r) => r.esercizio_id).filter(Boolean);
-    const map = new Map<string, { name: string }>();
+    const map = new Map<string, EsercizioMeta>();
     if (ids.length) {
       const { data: ex } = await supabase
         .from("esercizi_catalogo")
-        .select("id, name")
+        .select("id, name, category, muscle_group")
         .in("id", ids);
-      (ex ?? []).forEach((e) => map.set(e.id, { name: e.name }));
+      (ex ?? []).forEach((e) =>
+        map.set(e.id, {
+          name: e.name,
+          category: e.category,
+          muscle_group: e.muscle_group,
+        }),
+      );
     }
     setRows(
       (se ?? []).map((r) => ({ ...r, esercizio: map.get(r.esercizio_id) ?? null })),
@@ -90,8 +135,30 @@ function SchedaDetailPage() {
     setLoadingData(false);
   };
 
+  const fetchAthletes = async () => {
+    const { data: tm } = await supabase
+      .from("team_members")
+      .select("athlete_id")
+      .eq("team_id", teamId);
+    const ids = (tm ?? []).map((r) => r.athlete_id);
+    if (!ids.length) {
+      setAthletes([]);
+      return;
+    }
+    const { data: profs } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", ids);
+    setAthletes(
+      (profs ?? []).map((p) => ({ id: p.id, full_name: p.full_name })),
+    );
+  };
+
   useEffect(() => {
-    if (session?.user) fetchData();
+    if (session?.user) {
+      fetchData();
+      fetchAthletes();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user, schedaId]);
 
@@ -104,6 +171,20 @@ function SchedaDetailPage() {
     }
     toast.success("Esercizio rimosso");
     fetchData();
+  };
+
+  const updateSchedaField = async (patch: {
+    description?: string | null;
+    athlete_id?: string | null;
+  }) => {
+    if (!scheda) return;
+    setScheda({ ...scheda, ...patch });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await supabase
+      .from("schede")
+      .update(patch as any)
+      .eq("id", schedaId);
+    if (error) toast.error(error.message);
   };
 
   if (loading || loadingData || !profile) {
@@ -147,11 +228,51 @@ function SchedaDetailPage() {
 
         <div className="mt-4">
           <h1 className="text-3xl font-semibold tracking-tight">{scheda.title}</h1>
-          {scheda.description && (
-            <p className="mt-2 text-sm text-muted-foreground max-w-2xl">
-              {scheda.description}
-            </p>
-          )}
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 max-w-2xl">
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                Tipo scheda
+              </Label>
+              <Select
+                value={scheda.description ?? ""}
+                onValueChange={(v) => updateSchedaField({ description: v })}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Seleziona tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TIPO_SCHEDA_OPTIONS.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                Assegnata a
+              </Label>
+              <Select
+                value={scheda.athlete_id ?? "__team__"}
+                onValueChange={(v) =>
+                  updateSchedaField({ athlete_id: v === "__team__" ? null : v })
+                }
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__team__">Tutta la squadra</SelectItem>
+                  {athletes.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.full_name || "Atleta"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
 
         <section className="mt-8">
@@ -179,42 +300,73 @@ function SchedaDetailPage() {
             </div>
           ) : (
             <div className="rounded-lg border bg-card divide-y">
-              {rows.map((r, idx) => (
-                <div key={r.id} className="flex items-start justify-between gap-3 px-5 py-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono text-muted-foreground w-6">
-                        {String(idx + 1).padStart(2, "0")}
-                      </span>
-                      <div className="font-medium">
-                        {r.esercizio?.name ?? "Esercizio"}
+              {rows.map((r, idx) => {
+                const cat = r.esercizio?.category
+                  ? CAT_MAP.get(r.esercizio.category)
+                  : null;
+                return (
+                  <div
+                    key={r.id}
+                    className="flex items-start justify-between gap-3 px-5 py-4"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-mono text-muted-foreground w-6">
+                          {String(idx + 1).padStart(2, "0")}
+                        </span>
+                        <div className="font-medium">
+                          {r.esercizio?.name ?? "Esercizio"}
+                        </div>
+                        {cat && (
+                          <span
+                            className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full text-white"
+                            style={{ backgroundColor: cat.color }}
+                          >
+                            {cat.label}
+                          </span>
+                        )}
+                      </div>
+                      {r.esercizio?.muscle_group && (
+                        <div className="ml-8 mt-0.5 text-xs text-muted-foreground">
+                          {r.esercizio.muscle_group}
+                        </div>
+                      )}
+                      <div className="mt-1 ml-8 text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
+                        {r.sets != null && r.reps && (
+                          <span>
+                            {r.sets} × {r.reps}
+                          </span>
+                        )}
+                        {r.load_value != null && (
+                          <span>
+                            {r.load_value} {r.load_unit ?? "kg"}
+                          </span>
+                        )}
+                        {r.rpe_target != null && <span>RPE {r.rpe_target}</span>}
+                        {r.notes && <span className="italic">{r.notes}</span>}
                       </div>
                     </div>
-                    <div className="mt-1 ml-8 text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
-                      {r.sets != null && r.reps && (
-                        <span>
-                          {r.sets} × {r.reps}
-                        </span>
-                      )}
-                      {r.load_value != null && (
-                        <span>
-                          {r.load_value} {r.load_unit ?? "kg"}
-                        </span>
-                      )}
-                      {r.rpe_target != null && <span>RPE {r.rpe_target}</span>}
-                      {r.notes && <span className="italic">{r.notes}</span>}
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditingRow(r)}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeRow(r.id)}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeRow(r.id)}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
@@ -231,6 +383,24 @@ function SchedaDetailPage() {
             fetchData();
           }}
         />
+      </Dialog>
+
+      <Dialog
+        open={!!editingRow}
+        onOpenChange={(o) => {
+          if (!o) setEditingRow(null);
+        }}
+      >
+        {editingRow && (
+          <EditRowDialog
+            row={editingRow}
+            onClose={() => setEditingRow(null)}
+            onSaved={() => {
+              setEditingRow(null);
+              fetchData();
+            }}
+          />
+        )}
       </Dialog>
     </div>
   );
@@ -250,6 +420,7 @@ function AddExerciseDialog({
   onSaved: () => void;
 }) {
   const [search, setSearch] = useState("");
+  const [category, setCategory] = useState<string | null>(null);
   const [results, setResults] = useState<Esercizio[]>([]);
   const [searching, setSearching] = useState(false);
   const [chosen, setChosen] = useState<Esercizio | null>(null);
@@ -273,10 +444,14 @@ function AddExerciseDialog({
         .order("name", { ascending: true })
         .limit(20);
       if (search.trim()) q = q.ilike("name", `%${search.trim()}%`);
+      if (category) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        q = q.eq("category", category as any);
+      }
       const { data, error } = await q;
       if (cancelled) return;
       if (error) toast.error(error.message);
-      setResults(data ?? []);
+      setResults((data ?? []) as Esercizio[]);
       setSearching(false);
     };
     const t = setTimeout(run, 200);
@@ -284,7 +459,7 @@ function AddExerciseDialog({
       cancelled = true;
       clearTimeout(t);
     };
-  }, [search]);
+  }, [search, category]);
 
   const createFreeAndPick = async () => {
     const name = search.trim();
@@ -298,7 +473,7 @@ function AddExerciseDialog({
       toast.error(error.message);
       return;
     }
-    setChosen(data);
+    setChosen(data as Esercizio);
   };
 
   const save = async () => {
@@ -345,6 +520,23 @@ function AddExerciseDialog({
 
       {!chosen ? (
         <div className="space-y-3">
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar">
+            <CategoryPill
+              label="Tutti"
+              active={category === null}
+              onClick={() => setCategory(null)}
+            />
+            {CATEGORIES.map((c) => (
+              <CategoryPill
+                key={c.value}
+                label={c.label}
+                color={c.color}
+                active={category === c.value}
+                onClick={() => setCategory(c.value)}
+              />
+            ))}
+          </div>
+
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -366,18 +558,33 @@ function AddExerciseDialog({
                 Nessun risultato
               </div>
             ) : (
-              results.map((e) => (
-                <button
-                  key={e.id}
-                  onClick={() => setChosen(e)}
-                  className="w-full text-left px-4 py-2 hover:bg-muted/50 transition-colors text-sm"
-                >
-                  <div className="font-medium">{e.name}</div>
-                  {e.muscle_group && (
-                    <div className="text-xs text-muted-foreground">{e.muscle_group}</div>
-                  )}
-                </button>
-              ))
+              results.map((e) => {
+                const cat = e.category ? CAT_MAP.get(e.category) : null;
+                return (
+                  <button
+                    key={e.id}
+                    onClick={() => setChosen(e)}
+                    className="w-full text-left px-4 py-2 hover:bg-muted/50 transition-colors text-sm"
+                  >
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium">{e.name}</span>
+                      {cat && (
+                        <span
+                          className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full text-white"
+                          style={{ backgroundColor: cat.color }}
+                        >
+                          {cat.label}
+                        </span>
+                      )}
+                    </div>
+                    {e.muscle_group && (
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {e.muscle_group}
+                      </div>
+                    )}
+                  </button>
+                );
+              })
             )}
           </div>
 
@@ -477,6 +684,163 @@ function AddExerciseDialog({
           Annulla
         </Button>
         <Button onClick={save} disabled={!chosen || saving}>
+          {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+          Salva
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
+function CategoryPill({
+  label,
+  color,
+  active,
+  onClick,
+}: {
+  label: string;
+  color?: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`shrink-0 text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${
+        active
+          ? "text-white border-transparent"
+          : "bg-background text-foreground hover:bg-muted"
+      }`}
+      style={active ? { backgroundColor: color ?? "hsl(var(--primary))" } : undefined}
+    >
+      {label}
+    </button>
+  );
+}
+
+function EditRowDialog({
+  row,
+  onClose,
+  onSaved,
+}: {
+  row: SchedaEsercizio;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [sets, setSets] = useState<string>(row.sets != null ? String(row.sets) : "");
+  const [reps, setReps] = useState<string>(row.reps ?? "");
+  const [load, setLoad] = useState<string>(
+    row.load_value != null ? String(row.load_value) : "",
+  );
+  const [unit, setUnit] = useState<string>(row.load_unit ?? "kg");
+  const [rpe, setRpe] = useState<string>(
+    row.rpe_target != null ? String(row.rpe_target) : "",
+  );
+  const [notes, setNotes] = useState<string>(row.notes ?? "");
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    const { error } = await supabase
+      .from("scheda_esercizi")
+      .update({
+        sets: sets ? Number(sets) : null,
+        reps: reps || null,
+        load_value: load ? Number(load) : null,
+        load_unit: unit,
+        rpe_target: rpe ? Number(rpe) : null,
+        notes: notes || null,
+      })
+      .eq("id", row.id);
+    setSaving(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Esercizio aggiornato");
+    onSaved();
+  };
+
+  return (
+    <DialogContent className="max-w-md">
+      <DialogHeader>
+        <DialogTitle>Modifica esercizio</DialogTitle>
+        <DialogDescription>
+          {row.esercizio?.name ?? "Esercizio"}
+        </DialogDescription>
+      </DialogHeader>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label htmlFor="e-sets">Serie</Label>
+          <Input
+            id="e-sets"
+            type="number"
+            min={1}
+            value={sets}
+            onChange={(e) => setSets(e.target.value)}
+          />
+        </div>
+        <div>
+          <Label htmlFor="e-reps">Reps</Label>
+          <Input
+            id="e-reps"
+            value={reps}
+            onChange={(e) => setReps(e.target.value)}
+          />
+        </div>
+        <div>
+          <Label htmlFor="e-load">Carico</Label>
+          <Input
+            id="e-load"
+            type="number"
+            step="0.5"
+            value={load}
+            onChange={(e) => setLoad(e.target.value)}
+          />
+        </div>
+        <div>
+          <Label htmlFor="e-unit">Unità</Label>
+          <Select value={unit} onValueChange={setUnit}>
+            <SelectTrigger id="e-unit">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {UNIT_OPTIONS.map((u) => (
+                <SelectItem key={u} value={u}>
+                  {u}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="col-span-2">
+          <Label htmlFor="e-rpe">RPE target</Label>
+          <Input
+            id="e-rpe"
+            type="number"
+            min={1}
+            max={10}
+            step="0.5"
+            value={rpe}
+            onChange={(e) => setRpe(e.target.value)}
+          />
+        </div>
+        <div className="col-span-2">
+          <Label htmlFor="e-notes">Note</Label>
+          <Textarea
+            id="e-notes"
+            rows={2}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
+        </div>
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose}>
+          Annulla
+        </Button>
+        <Button onClick={save} disabled={saving}>
           {saving && <Loader2 className="h-4 w-4 animate-spin" />}
           Salva
         </Button>
