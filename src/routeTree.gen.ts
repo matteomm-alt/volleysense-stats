@@ -24,6 +24,7 @@ import { Route as CoachTeamTeamIdRouteImport } from './routes/coach.team.$teamId
 import { Route as CoachTeamTeamIdIndexRouteImport } from './routes/coach.team.$teamId.index'
 import { Route as CoachTeamTeamIdPresenzeRouteImport } from './routes/coach.team.$teamId.presenze'
 import { Route as CoachTeamTeamIdPeriodiRouteImport } from './routes/coach.team.$teamId.periodi'
+import { Route as CoachTeamSchedeRouteImport } from './routes/coach.team..schede.'
 import { Route as CoachTeamTeamIdSchedeSchedaIdRouteImport } from './routes/coach.team.$teamId.schede.$schedaId'
 
 const SignupRoute = SignupRouteImport.update({
@@ -101,6 +102,11 @@ const CoachTeamTeamIdPeriodiRoute = CoachTeamTeamIdPeriodiRouteImport.update({
   path: '/periodi',
   getParentRoute: () => CoachTeamTeamIdRoute,
 } as any)
+const CoachTeamSchedeRoute = CoachTeamSchedeRouteImport.update({
+  id: '/team/schede/',
+  path: '/team/schede/',
+  getParentRoute: () => CoachRoute,
+} as any)
 const CoachTeamTeamIdSchedeSchedaIdRoute =
   CoachTeamTeamIdSchedeSchedaIdRouteImport.update({
     id: '/schede/$schedaId',
@@ -121,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/atleta/schede': typeof AtletaSchedeRoute
   '/coach/': typeof CoachIndexRoute
   '/coach/team/$teamId': typeof CoachTeamTeamIdRouteWithChildren
+  '/coach/team/schede/': typeof CoachTeamSchedeRoute
   '/coach/team/$teamId/periodi': typeof CoachTeamTeamIdPeriodiRoute
   '/coach/team/$teamId/presenze': typeof CoachTeamTeamIdPresenzeRoute
   '/coach/team/$teamId/': typeof CoachTeamTeamIdIndexRoute
@@ -137,6 +144,7 @@ export interface FileRoutesByTo {
   '/atleta/registro': typeof AtletaRegistroRoute
   '/atleta/schede': typeof AtletaSchedeRoute
   '/coach': typeof CoachIndexRoute
+  '/coach/team/schede': typeof CoachTeamSchedeRoute
   '/coach/team/$teamId/periodi': typeof CoachTeamTeamIdPeriodiRoute
   '/coach/team/$teamId/presenze': typeof CoachTeamTeamIdPresenzeRoute
   '/coach/team/$teamId': typeof CoachTeamTeamIdIndexRoute
@@ -156,6 +164,7 @@ export interface FileRoutesById {
   '/atleta/schede': typeof AtletaSchedeRoute
   '/coach/': typeof CoachIndexRoute
   '/coach/team/$teamId': typeof CoachTeamTeamIdRouteWithChildren
+  '/coach/team/schede/': typeof CoachTeamSchedeRoute
   '/coach/team/$teamId/periodi': typeof CoachTeamTeamIdPeriodiRoute
   '/coach/team/$teamId/presenze': typeof CoachTeamTeamIdPresenzeRoute
   '/coach/team/$teamId/': typeof CoachTeamTeamIdIndexRoute
@@ -176,6 +185,7 @@ export interface FileRouteTypes {
     | '/atleta/schede'
     | '/coach/'
     | '/coach/team/$teamId'
+    | '/coach/team/schede/'
     | '/coach/team/$teamId/periodi'
     | '/coach/team/$teamId/presenze'
     | '/coach/team/$teamId/'
@@ -192,6 +202,7 @@ export interface FileRouteTypes {
     | '/atleta/registro'
     | '/atleta/schede'
     | '/coach'
+    | '/coach/team/schede'
     | '/coach/team/$teamId/periodi'
     | '/coach/team/$teamId/presenze'
     | '/coach/team/$teamId'
@@ -210,6 +221,7 @@ export interface FileRouteTypes {
     | '/atleta/schede'
     | '/coach/'
     | '/coach/team/$teamId'
+    | '/coach/team/schede/'
     | '/coach/team/$teamId/periodi'
     | '/coach/team/$teamId/presenze'
     | '/coach/team/$teamId/'
@@ -334,6 +346,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CoachTeamTeamIdPeriodiRouteImport
       parentRoute: typeof CoachTeamTeamIdRoute
     }
+    '/coach/team/schede/': {
+      id: '/coach/team/schede/'
+      path: '/team/schede'
+      fullPath: '/coach/team/schede/'
+      preLoaderRoute: typeof CoachTeamSchedeRouteImport
+      parentRoute: typeof CoachRoute
+    }
     '/coach/team/$teamId/schede/$schedaId': {
       id: '/coach/team/$teamId/schede/$schedaId'
       path: '/schede/$schedaId'
@@ -378,11 +397,13 @@ const CoachTeamTeamIdRouteWithChildren = CoachTeamTeamIdRoute._addFileChildren(
 interface CoachRouteChildren {
   CoachIndexRoute: typeof CoachIndexRoute
   CoachTeamTeamIdRoute: typeof CoachTeamTeamIdRouteWithChildren
+  CoachTeamSchedeRoute: typeof CoachTeamSchedeRoute
 }
 
 const CoachRouteChildren: CoachRouteChildren = {
   CoachIndexRoute: CoachIndexRoute,
   CoachTeamTeamIdRoute: CoachTeamTeamIdRouteWithChildren,
+  CoachTeamSchedeRoute: CoachTeamSchedeRoute,
 }
 
 const CoachRouteWithChildren = CoachRoute._addFileChildren(CoachRouteChildren)
