@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState, FormEvent } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
+import { joinTeamWithCode } from "@/lib/teams.functions";
 import { AppHeader } from "@/components/AppHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -257,17 +258,20 @@ function JoinTeamDialog({ onJoined }: { onJoined: () => void }) {
     const cleaned = code.trim().toUpperCase();
     if (!cleaned) return;
     setSubmitting(true);
-    const { error } = await supabase.rpc("join_team_with_code", { _code: cleaned });
-    setSubmitting(false);
-    if (error) {
+    try {
+      await joinTeamWithCode({ data: { code: cleaned } });
+    } catch (err) {
+      setSubmitting(false);
+      const msg = err instanceof Error ? err.message : String(err);
       const map: Record<string, string> = {
         invalid_code: "Codice non valido",
         not_athlete: "Solo gli atleti possono unirsi a una squadra",
         not_authenticated: "Devi essere loggato",
       };
-      toast.error(map[error.message] ?? error.message);
+      toast.error(map[msg] ?? msg);
       return;
     }
+    setSubmitting(false);
     toast.success("Sei nella squadra!");
     setCode("");
     onJoined();
