@@ -18,8 +18,10 @@ import { Route as CoachRouteImport } from './routes/coach'
 import { Route as AtletaRouteImport } from './routes/atleta'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CoachIndexRouteImport } from './routes/coach.index'
+import { Route as AtletaStoricoRouteImport } from './routes/atleta.storico'
 import { Route as AtletaSchedeRouteImport } from './routes/atleta.schede'
 import { Route as AtletaRegistroRouteImport } from './routes/atleta.registro'
+import { Route as AtletaProgressiRouteImport } from './routes/atleta.progressi'
 import { Route as CoachTeamTeamIdRouteImport } from './routes/coach.team.$teamId'
 import { Route as CoachTeamTeamIdIndexRouteImport } from './routes/coach.team.$teamId.index'
 import { Route as CoachTeamTeamIdPresenzeRouteImport } from './routes/coach.team.$teamId.presenze'
@@ -71,6 +73,11 @@ const CoachIndexRoute = CoachIndexRouteImport.update({
   path: '/',
   getParentRoute: () => CoachRoute,
 } as any)
+const AtletaStoricoRoute = AtletaStoricoRouteImport.update({
+  id: '/storico',
+  path: '/storico',
+  getParentRoute: () => AtletaRoute,
+} as any)
 const AtletaSchedeRoute = AtletaSchedeRouteImport.update({
   id: '/schede',
   path: '/schede',
@@ -79,6 +86,11 @@ const AtletaSchedeRoute = AtletaSchedeRouteImport.update({
 const AtletaRegistroRoute = AtletaRegistroRouteImport.update({
   id: '/registro',
   path: '/registro',
+  getParentRoute: () => AtletaRoute,
+} as any)
+const AtletaProgressiRoute = AtletaProgressiRouteImport.update({
+  id: '/progressi',
+  path: '/progressi',
   getParentRoute: () => AtletaRoute,
 } as any)
 const CoachTeamTeamIdRoute = CoachTeamTeamIdRouteImport.update({
@@ -117,8 +129,10 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/atleta/progressi': typeof AtletaProgressiRoute
   '/atleta/registro': typeof AtletaRegistroRoute
   '/atleta/schede': typeof AtletaSchedeRoute
+  '/atleta/storico': typeof AtletaStoricoRoute
   '/coach/': typeof CoachIndexRoute
   '/coach/team/$teamId': typeof CoachTeamTeamIdRouteWithChildren
   '/coach/team/$teamId/periodi': typeof CoachTeamTeamIdPeriodiRoute
@@ -134,8 +148,10 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/atleta/progressi': typeof AtletaProgressiRoute
   '/atleta/registro': typeof AtletaRegistroRoute
   '/atleta/schede': typeof AtletaSchedeRoute
+  '/atleta/storico': typeof AtletaStoricoRoute
   '/coach': typeof CoachIndexRoute
   '/coach/team/$teamId/periodi': typeof CoachTeamTeamIdPeriodiRoute
   '/coach/team/$teamId/presenze': typeof CoachTeamTeamIdPresenzeRoute
@@ -152,8 +168,10 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/atleta/progressi': typeof AtletaProgressiRoute
   '/atleta/registro': typeof AtletaRegistroRoute
   '/atleta/schede': typeof AtletaSchedeRoute
+  '/atleta/storico': typeof AtletaStoricoRoute
   '/coach/': typeof CoachIndexRoute
   '/coach/team/$teamId': typeof CoachTeamTeamIdRouteWithChildren
   '/coach/team/$teamId/periodi': typeof CoachTeamTeamIdPeriodiRoute
@@ -172,8 +190,10 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/reset-password'
     | '/signup'
+    | '/atleta/progressi'
     | '/atleta/registro'
     | '/atleta/schede'
+    | '/atleta/storico'
     | '/coach/'
     | '/coach/team/$teamId'
     | '/coach/team/$teamId/periodi'
@@ -189,8 +209,10 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/reset-password'
     | '/signup'
+    | '/atleta/progressi'
     | '/atleta/registro'
     | '/atleta/schede'
+    | '/atleta/storico'
     | '/coach'
     | '/coach/team/$teamId/periodi'
     | '/coach/team/$teamId/presenze'
@@ -206,8 +228,10 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/reset-password'
     | '/signup'
+    | '/atleta/progressi'
     | '/atleta/registro'
     | '/atleta/schede'
+    | '/atleta/storico'
     | '/coach/'
     | '/coach/team/$teamId'
     | '/coach/team/$teamId/periodi'
@@ -292,6 +316,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CoachIndexRouteImport
       parentRoute: typeof CoachRoute
     }
+    '/atleta/storico': {
+      id: '/atleta/storico'
+      path: '/storico'
+      fullPath: '/atleta/storico'
+      preLoaderRoute: typeof AtletaStoricoRouteImport
+      parentRoute: typeof AtletaRoute
+    }
     '/atleta/schede': {
       id: '/atleta/schede'
       path: '/schede'
@@ -304,6 +335,13 @@ declare module '@tanstack/react-router' {
       path: '/registro'
       fullPath: '/atleta/registro'
       preLoaderRoute: typeof AtletaRegistroRouteImport
+      parentRoute: typeof AtletaRoute
+    }
+    '/atleta/progressi': {
+      id: '/atleta/progressi'
+      path: '/progressi'
+      fullPath: '/atleta/progressi'
+      preLoaderRoute: typeof AtletaProgressiRouteImport
       parentRoute: typeof AtletaRoute
     }
     '/coach/team/$teamId': {
@@ -345,13 +383,17 @@ declare module '@tanstack/react-router' {
 }
 
 interface AtletaRouteChildren {
+  AtletaProgressiRoute: typeof AtletaProgressiRoute
   AtletaRegistroRoute: typeof AtletaRegistroRoute
   AtletaSchedeRoute: typeof AtletaSchedeRoute
+  AtletaStoricoRoute: typeof AtletaStoricoRoute
 }
 
 const AtletaRouteChildren: AtletaRouteChildren = {
+  AtletaProgressiRoute: AtletaProgressiRoute,
   AtletaRegistroRoute: AtletaRegistroRoute,
   AtletaSchedeRoute: AtletaSchedeRoute,
+  AtletaStoricoRoute: AtletaStoricoRoute,
 }
 
 const AtletaRouteWithChildren =

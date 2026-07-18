@@ -194,21 +194,37 @@ function AtletaHome() {
             </div>
           </Link>
 
-          {/* Progressi — prossimamente */}
-          <div className="rounded-lg border bg-card p-4 flex items-center justify-between opacity-50 cursor-not-allowed">
-            <div className="flex items-center gap-3">
-              <div className="grid h-9 w-9 place-items-center rounded-full bg-secondary">
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          {/* Storico — attivo */}
+          <Link to={"/atleta/storico" as any}>
+            <div className="rounded-lg border bg-card p-4 flex items-center justify-between hover:bg-muted/50 transition-colors cursor-pointer group">
+              <div className="flex items-center gap-3">
+                <div className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 group-hover:bg-primary/15 transition-colors">
+                  <ClipboardList className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <div className="font-semibold text-sm">Storico allenamenti</div>
+                  <div className="text-xs text-muted-foreground">Ultime sessioni registrate</div>
+                </div>
               </div>
-              <div>
-                <div className="font-semibold text-sm">Progressi</div>
-                <div className="text-xs text-muted-foreground">Grafici e storico allenamenti</div>
-              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
             </div>
-            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground border rounded px-1.5 py-0.5">
-              Presto
-            </span>
-          </div>
+          </Link>
+
+          {/* Progressi — attivo */}
+          <Link to={"/atleta/progressi" as any}>
+            <div className="rounded-lg border bg-card p-4 flex items-center justify-between hover:bg-muted/50 transition-colors cursor-pointer group">
+              <div className="flex items-center gap-3">
+                <div className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 group-hover:bg-primary/15 transition-colors">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <div className="font-semibold text-sm">Progressi</div>
+                  <div className="text-xs text-muted-foreground">Grafici RPE, volume e carichi</div>
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+            </div>
+          </Link>
 
           {/* Infortuni — prossimamente */}
           <div className="rounded-lg border bg-card p-4 flex items-center justify-between opacity-50 cursor-not-allowed">

@@ -105,6 +105,11 @@ function RegistroPage() {
   const [customName, setCustomName] = useState("");
   const addRef = useRef<HTMLDivElement>(null);
 
+  // Scheda assegnata (pre-popolamento)
+  const [assignedScheda, setAssignedScheda] = useState<{ id: string; title: string } | null>(null);
+  const [showSchedaBanner, setShowSchedaBanner] = useState(false);
+  const [loadingScheda, setLoadingScheda] = useState(false);
+
   // ─── Auth guard ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (loading) return;
@@ -131,6 +136,78 @@ function RegistroPage() {
       setLoadingTeams(false);
     })();
   }, [session?.user, role]);
+
+  // ─── Cerca scheda del giorno per la squadra selezionata ─────────────────────
+  useEffect(() => {
+    if (!session?.user || !selectedTeamId) {
+      setAssignedScheda(null);
+      setShowSchedaBanner(false);
+      return;
+    }
+    (async () => {
+      const today = new Date().toISOString().split("T")[0];
+      const { data: periodi } = await supabase
+        .from("periodi")
+        .select("id")
+        .eq("team_id", selectedTeamId)
+        .lte("start_date", today)
+        .gte("end_date", today);
+      const periodoIds = (periodi ?? []).map((p) => p.id);
+      if (!periodoIds.length) { setAssignedScheda(null); setShowSchedaBanner(false); return; }
+
+      const { data: sett } = await supabase
+        .from("settimane")
+        .select("id")
+        .in("periodo_id", periodoIds)
+        .eq("is_template", false);
+      const settIds = (sett ?? []).map((s) => s.id);
+      if (!settIds.length) { setAssignedScheda(null); setShowSchedaBanner(false); return; }
+
+      const { data: schede } = await supabase
+        .from("schede")
+        .select("id, title, athlete_id")
+        .eq("team_id", selectedTeamId)
+        .in("settimana_id", settIds)
+        .or(`athlete_id.eq.${session.user.id},athlete_id.is.null`)
+        .limit(1);
+
+      const s = (schede ?? [])[0];
+      if (s) {
+        setAssignedScheda({ id: s.id, title: s.title ?? "Scheda del giorno" });
+        setShowSchedaBanner(true);
+      } else {
+        setAssignedScheda(null);
+        setShowSchedaBanner(false);
+      }
+    })();
+  }, [selectedTeamId, session?.user]);
+
+  const loadSchedaEsercizi = async () => {
+    if (!assignedScheda) return;
+    setLoadingScheda(true);
+    const { data, error } = await supabase
+      .from("scheda_esercizi")
+      .select("sets, reps, load_value, load_unit, rpe_target, notes, esercizi_catalogo(name)")
+      .eq("scheda_id", assignedScheda.id)
+      .order("order_index", { ascending: true });
+    setLoadingScheda(false);
+    if (error) { toast.error(error.message); return; }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows: ExerciseRow[] = (data ?? []).map((r: any) => ({
+      id: crypto.randomUUID(),
+      name: r.esercizi_catalogo?.name ?? "",
+      sets: String(r.sets ?? 3),
+      reps: String(r.reps ?? 8),
+      load: r.load_value != null ? String(r.load_value) : "",
+      unit: r.load_unit ?? "kg",
+      rpe: r.rpe_target != null ? String(r.rpe_target) : "",
+      notes: r.notes ?? "",
+      open: false,
+    }));
+    setExercises(rows);
+    setShowSchedaBanner(false);
+    toast.success(`Caricati ${rows.length} esercizi dalla scheda`);
+  };
 
   // Chiudi dropdown esercizi cliccando fuori
   useEffect(() => {
@@ -471,6 +548,21 @@ function RegistroPage() {
 
         {/* ── ESERCIZI ─────────────────────────────────────────────────── */}
         <section className="rounded-xl border bg-card p-5 space-y-4">
+          {showSchedaBanner && assignedScheda && (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-xs font-semibold uppercase tracking-wider text-primary">Scheda assegnata</div>
+                <div className="text-sm font-medium truncate">{assignedScheda.title}</div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Button size="sm" variant="ghost" onClick={() => setShowSchedaBanner(false)}>Ignora</Button>
+                <Button size="sm" onClick={loadSchedaEsercizi} disabled={loadingScheda}>
+                  {loadingScheda && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  Carica esercizi
+                </Button>
+              </div>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               Esercizi eseguiti
