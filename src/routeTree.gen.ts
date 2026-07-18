@@ -26,6 +26,7 @@ import { Route as CoachTeamTeamIdRouteImport } from './routes/coach.team.$teamId
 import { Route as CoachTeamTeamIdIndexRouteImport } from './routes/coach.team.$teamId.index'
 import { Route as CoachTeamTeamIdPresenzeRouteImport } from './routes/coach.team.$teamId.presenze'
 import { Route as CoachTeamTeamIdPeriodiRouteImport } from './routes/coach.team.$teamId.periodi'
+import { Route as CoachTeamTeamIdCalendarioRouteImport } from './routes/coach.team.$teamId.calendario'
 import { Route as CoachTeamTeamIdSchedeSchedaIdRouteImport } from './routes/coach.team.$teamId.schede.$schedaId'
 
 const SignupRoute = SignupRouteImport.update({
@@ -113,6 +114,12 @@ const CoachTeamTeamIdPeriodiRoute = CoachTeamTeamIdPeriodiRouteImport.update({
   path: '/periodi',
   getParentRoute: () => CoachTeamTeamIdRoute,
 } as any)
+const CoachTeamTeamIdCalendarioRoute =
+  CoachTeamTeamIdCalendarioRouteImport.update({
+    id: '/calendario',
+    path: '/calendario',
+    getParentRoute: () => CoachTeamTeamIdRoute,
+  } as any)
 const CoachTeamTeamIdSchedeSchedaIdRoute =
   CoachTeamTeamIdSchedeSchedaIdRouteImport.update({
     id: '/schede/$schedaId',
@@ -135,6 +142,7 @@ export interface FileRoutesByFullPath {
   '/atleta/storico': typeof AtletaStoricoRoute
   '/coach/': typeof CoachIndexRoute
   '/coach/team/$teamId': typeof CoachTeamTeamIdRouteWithChildren
+  '/coach/team/$teamId/calendario': typeof CoachTeamTeamIdCalendarioRoute
   '/coach/team/$teamId/periodi': typeof CoachTeamTeamIdPeriodiRoute
   '/coach/team/$teamId/presenze': typeof CoachTeamTeamIdPresenzeRoute
   '/coach/team/$teamId/': typeof CoachTeamTeamIdIndexRoute
@@ -153,6 +161,7 @@ export interface FileRoutesByTo {
   '/atleta/schede': typeof AtletaSchedeRoute
   '/atleta/storico': typeof AtletaStoricoRoute
   '/coach': typeof CoachIndexRoute
+  '/coach/team/$teamId/calendario': typeof CoachTeamTeamIdCalendarioRoute
   '/coach/team/$teamId/periodi': typeof CoachTeamTeamIdPeriodiRoute
   '/coach/team/$teamId/presenze': typeof CoachTeamTeamIdPresenzeRoute
   '/coach/team/$teamId': typeof CoachTeamTeamIdIndexRoute
@@ -174,6 +183,7 @@ export interface FileRoutesById {
   '/atleta/storico': typeof AtletaStoricoRoute
   '/coach/': typeof CoachIndexRoute
   '/coach/team/$teamId': typeof CoachTeamTeamIdRouteWithChildren
+  '/coach/team/$teamId/calendario': typeof CoachTeamTeamIdCalendarioRoute
   '/coach/team/$teamId/periodi': typeof CoachTeamTeamIdPeriodiRoute
   '/coach/team/$teamId/presenze': typeof CoachTeamTeamIdPresenzeRoute
   '/coach/team/$teamId/': typeof CoachTeamTeamIdIndexRoute
@@ -196,6 +206,7 @@ export interface FileRouteTypes {
     | '/atleta/storico'
     | '/coach/'
     | '/coach/team/$teamId'
+    | '/coach/team/$teamId/calendario'
     | '/coach/team/$teamId/periodi'
     | '/coach/team/$teamId/presenze'
     | '/coach/team/$teamId/'
@@ -214,6 +225,7 @@ export interface FileRouteTypes {
     | '/atleta/schede'
     | '/atleta/storico'
     | '/coach'
+    | '/coach/team/$teamId/calendario'
     | '/coach/team/$teamId/periodi'
     | '/coach/team/$teamId/presenze'
     | '/coach/team/$teamId'
@@ -234,6 +246,7 @@ export interface FileRouteTypes {
     | '/atleta/storico'
     | '/coach/'
     | '/coach/team/$teamId'
+    | '/coach/team/$teamId/calendario'
     | '/coach/team/$teamId/periodi'
     | '/coach/team/$teamId/presenze'
     | '/coach/team/$teamId/'
@@ -372,6 +385,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CoachTeamTeamIdPeriodiRouteImport
       parentRoute: typeof CoachTeamTeamIdRoute
     }
+    '/coach/team/$teamId/calendario': {
+      id: '/coach/team/$teamId/calendario'
+      path: '/calendario'
+      fullPath: '/coach/team/$teamId/calendario'
+      preLoaderRoute: typeof CoachTeamTeamIdCalendarioRouteImport
+      parentRoute: typeof CoachTeamTeamIdRoute
+    }
     '/coach/team/$teamId/schede/$schedaId': {
       id: '/coach/team/$teamId/schede/$schedaId'
       path: '/schede/$schedaId'
@@ -400,6 +420,7 @@ const AtletaRouteWithChildren =
   AtletaRoute._addFileChildren(AtletaRouteChildren)
 
 interface CoachTeamTeamIdRouteChildren {
+  CoachTeamTeamIdCalendarioRoute: typeof CoachTeamTeamIdCalendarioRoute
   CoachTeamTeamIdPeriodiRoute: typeof CoachTeamTeamIdPeriodiRoute
   CoachTeamTeamIdPresenzeRoute: typeof CoachTeamTeamIdPresenzeRoute
   CoachTeamTeamIdIndexRoute: typeof CoachTeamTeamIdIndexRoute
@@ -407,6 +428,7 @@ interface CoachTeamTeamIdRouteChildren {
 }
 
 const CoachTeamTeamIdRouteChildren: CoachTeamTeamIdRouteChildren = {
+  CoachTeamTeamIdCalendarioRoute: CoachTeamTeamIdCalendarioRoute,
   CoachTeamTeamIdPeriodiRoute: CoachTeamTeamIdPeriodiRoute,
   CoachTeamTeamIdPresenzeRoute: CoachTeamTeamIdPresenzeRoute,
   CoachTeamTeamIdIndexRoute: CoachTeamTeamIdIndexRoute,
