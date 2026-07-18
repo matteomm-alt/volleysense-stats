@@ -75,8 +75,6 @@ function SchedaDetailPage() {
   const [rows, setRows] = useState<SchedaEsercizio[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [athletes, setAthletes] = useState<TeamAthlete[]>([]);
-
-  // Nuovo stato UI
   const [activeTab, setActiveTab] = useState<"scheda" | "catalogo">("scheda");
   const [expandedCatalogId, setExpandedCatalogId] = useState<string | null>(null);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
@@ -84,8 +82,6 @@ function SchedaDetailPage() {
   const [catalogSearch, setCatalogSearch] = useState("");
   const [catalogResults, setCatalogResults] = useState<Esercizio[]>([]);
   const [loadingCatalog, setLoadingCatalog] = useState(false);
-
-  // Form aggiungi
   const [addSets, setAddSets] = useState("3");
   const [addReps, setAddReps] = useState("8");
   const [addLoad, setAddLoad] = useState("");
@@ -93,8 +89,6 @@ function SchedaDetailPage() {
   const [addRpe, setAddRpe] = useState("");
   const [addNotes, setAddNotes] = useState("");
   const [addSaving, setAddSaving] = useState(false);
-
-  // Form modifica
   const [editSets, setEditSets] = useState("");
   const [editReps, setEditReps] = useState("");
   const [editLoad, setEditLoad] = useState("");
@@ -175,7 +169,6 @@ function SchedaDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user, schedaId]);
 
-  // Ricerca catalogo (debounced)
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
@@ -346,8 +339,7 @@ function SchedaDetailPage() {
   return (
     <div className="min-h-screen flex flex-col">
       <AppHeader name={profile.full_name ?? "Coach"} role={role} onSignOut={signOut} />
-      <main className="flex-1 container mx-auto max-w-6xl px-4 py-6">
-        {/* Header scheda */}
+      <main className="flex-1 container mx-auto max-w-7xl px-4 py-6">
         <Link
           to="/coach/team/$teamId/periodi"
           params={{ teamId }}
@@ -357,17 +349,21 @@ function SchedaDetailPage() {
           Torna ai periodi
         </Link>
 
-        <div className="mt-3">
-          <h1 className="text-2xl font-semibold tracking-tight">{scheda.title}</h1>
-          <div className="mt-3 flex flex-wrap items-end gap-3">
-            <div className="flex flex-col gap-1">
+        <header className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+          <div className="min-w-0">
+            <h1 className="truncate text-2xl font-semibold tracking-tight">
+              {scheda.title}
+            </h1>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[520px]">
+            <div className="flex min-w-0 flex-col gap-1">
               <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
                 Tipo scheda
               </Label>
               <select
                 value={scheda.description ?? ""}
                 onChange={(e) => updateSchedaField("description", e.target.value || null)}
-                className="h-9 rounded-md border bg-background px-3 text-sm"
+                className="h-9 w-full rounded-md border bg-background px-3 text-sm"
               >
                 <option value="">—</option>
                 {TIPO_SCHEDA_OPTIONS.map((t) => (
@@ -377,14 +373,14 @@ function SchedaDetailPage() {
                 ))}
               </select>
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex min-w-0 flex-col gap-1">
               <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
                 Assegnata a
               </Label>
               <select
                 value={scheda.athlete_id ?? ""}
                 onChange={(e) => updateSchedaField("athlete_id", e.target.value || null)}
-                className="h-9 rounded-md border bg-background px-3 text-sm min-w-[200px]"
+                className="h-9 w-full rounded-md border bg-background px-3 text-sm"
               >
                 <option value="">Tutta la squadra</option>
                 {athletes.map((a) => (
@@ -395,257 +391,60 @@ function SchedaDetailPage() {
               </select>
             </div>
           </div>
-        </div>
+        </header>
 
-        {/* Tab bar mobile */}
-        <div className="lg:hidden mt-6 grid grid-cols-2 rounded-lg border bg-card p-1">
+        <div className="mt-6 grid grid-cols-2 rounded-lg border bg-card p-1 lg:hidden">
           <button
             type="button"
             onClick={() => setActiveTab("scheda")}
-            className={`inline-flex items-center justify-center gap-2 text-sm font-medium py-2 rounded-md transition-colors ${
+            className={`inline-flex min-w-0 items-center justify-center gap-2 rounded-md py-2 text-sm font-medium transition-colors ${
               activeTab === "scheda"
                 ? "bg-primary text-primary-foreground"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <ListChecks className="h-4 w-4" />
-            Scheda · {rows.length}
+            <ListChecks className="h-4 w-4 shrink-0" />
+            <span className="truncate">Scheda</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("catalogo")}
-            className={`inline-flex items-center justify-center gap-2 text-sm font-medium py-2 rounded-md transition-colors ${
+            className={`inline-flex min-w-0 items-center justify-center gap-2 rounded-md py-2 text-sm font-medium transition-colors ${
               activeTab === "catalogo"
                 ? "bg-primary text-primary-foreground"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <BookOpen className="h-4 w-4" />
-            Catalogo
+            <BookOpen className="h-4 w-4 shrink-0" />
+            <span className="truncate">Catalogo</span>
           </button>
         </div>
 
-        {/* Contenuto: desktop 2 colonne, mobile 1 colonna tab */}
-        <div className="mt-6 grid gap-6 lg:grid-cols-2">
-          {/* Colonna Catalogo */}
-          <section
-            className={`${activeTab === "catalogo" ? "block" : "hidden"} lg:block`}
-          >
+        <div className="mt-6 grid gap-6 lg:grid-cols-2 lg:items-start">
+          <section className={`${activeTab === "scheda" ? "block" : "hidden"} lg:block`}>
             <div className="rounded-lg border bg-card">
-              <div className="p-4 border-b space-y-3">
-                <div className="flex items-center gap-2">
-                  <BookOpen className="h-4 w-4 text-muted-foreground" />
-                  <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                    Catalogo esercizi
-                  </h2>
-                </div>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Cerca esercizio..."
-                    value={catalogSearch}
-                    onChange={(e) => setCatalogSearch(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-                <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar">
-                  <CategoryPill
-                    label="Tutti"
-                    active={categoryFilter === null}
-                    onClick={() => setCategoryFilter(null)}
-                  />
-                  {CATEGORIES.map((c) => (
-                    <CategoryPill
-                      key={c.value}
-                      label={c.label}
-                      color={c.color}
-                      active={categoryFilter === c.value}
-                      onClick={() => setCategoryFilter(c.value)}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="max-h-[70vh] overflow-y-auto divide-y">
-                {loadingCatalog ? (
-                  <div className="p-6 text-center text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin inline" />
+              <div className="border-b p-4">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <ListChecks className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <h2 className="truncate text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                      Scheda
+                    </h2>
                   </div>
-                ) : catalogResults.length === 0 ? (
-                  <div className="p-6 text-center text-sm text-muted-foreground space-y-3">
-                    <div>Nessun risultato</div>
-                    {catalogSearch.trim() && (
-                      <Button variant="outline" size="sm" onClick={createFreeExercise}>
-                        <Plus className="h-4 w-4" /> Crea "{catalogSearch.trim()}"
-                      </Button>
-                    )}
-                  </div>
-                ) : (
-                  catalogResults.map((e) => {
-                    const cat = e.category ? CAT_MAP.get(e.category) : null;
-                    const expanded = expandedCatalogId === e.id;
-                    return (
-                      <div key={e.id}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (expanded) {
-                              setExpandedCatalogId(null);
-                            } else {
-                              setExpandedCatalogId(e.id);
-                              resetAddForm();
-                            }
-                          }}
-                          className="w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors"
-                        >
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-medium text-sm">{e.name}</span>
-                            {cat && (
-                              <span
-                                className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full text-white"
-                                style={{ backgroundColor: cat.color }}
-                              >
-                                {cat.label}
-                              </span>
-                            )}
-                          </div>
-                          {e.muscle_group && (
-                            <div className="text-xs text-muted-foreground mt-0.5">
-                              {e.muscle_group}
-                            </div>
-                          )}
-                        </button>
-                        {expanded && (
-                          <div className="px-4 pb-4 pt-1 bg-muted/30 space-y-3">
-                            <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <Label htmlFor={`sets-${e.id}`}>Serie</Label>
-                                <Input
-                                  id={`sets-${e.id}`}
-                                  type="number"
-                                  min={1}
-                                  value={addSets}
-                                  onChange={(ev) => setAddSets(ev.target.value)}
-                                />
-                              </div>
-                              <div>
-                                <Label htmlFor={`reps-${e.id}`}>Reps</Label>
-                                <Input
-                                  id={`reps-${e.id}`}
-                                  placeholder="8 o 8-10"
-                                  value={addReps}
-                                  onChange={(ev) => setAddReps(ev.target.value)}
-                                />
-                              </div>
-                              <div>
-                                <Label htmlFor={`load-${e.id}`}>Carico</Label>
-                                <Input
-                                  id={`load-${e.id}`}
-                                  type="number"
-                                  step="0.5"
-                                  value={addLoad}
-                                  onChange={(ev) => setAddLoad(ev.target.value)}
-                                />
-                              </div>
-                              <div>
-                                <Label htmlFor={`unit-${e.id}`}>Unità</Label>
-                                <select
-                                  id={`unit-${e.id}`}
-                                  value={addUnit}
-                                  onChange={(ev) => setAddUnit(ev.target.value)}
-                                  className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-                                >
-                                  {UNIT_OPTIONS.map((u) => (
-                                    <option key={u} value={u}>
-                                      {u}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                              <div className="col-span-2">
-                                <Label htmlFor={`rpe-${e.id}`}>RPE target (opzionale)</Label>
-                                <Input
-                                  id={`rpe-${e.id}`}
-                                  type="number"
-                                  min={1}
-                                  max={10}
-                                  step="0.5"
-                                  value={addRpe}
-                                  onChange={(ev) => setAddRpe(ev.target.value)}
-                                />
-                              </div>
-                              <div className="col-span-2">
-                                <Label htmlFor={`notes-${e.id}`}>Note</Label>
-                                <Textarea
-                                  id={`notes-${e.id}`}
-                                  rows={2}
-                                  value={addNotes}
-                                  onChange={(ev) => setAddNotes(ev.target.value)}
-                                />
-                              </div>
-                            </div>
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setExpandedCatalogId(null)}
-                              >
-                                <X className="h-4 w-4" /> Annulla
-                              </Button>
-                              <Button
-                                size="sm"
-                                onClick={() => addExerciseFromCatalog(e)}
-                                disabled={addSaving}
-                              >
-                                {addSaving && (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                )}
-                                <Plus className="h-4 w-4" /> Aggiungi alla scheda
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-              {catalogSearch.trim() && catalogResults.length > 0 && (
-                <div className="p-3 border-t">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={createFreeExercise}
-                  >
-                    <Plus className="h-4 w-4" /> Crea "{catalogSearch.trim()}"
-                  </Button>
+                  <span className="shrink-0 rounded-full bg-secondary px-2 py-1 text-xs font-medium text-secondary-foreground">
+                    {rows.length} esercizi
+                  </span>
                 </div>
-              )}
-            </div>
-          </section>
-
-          {/* Colonna Scheda */}
-          <section
-            className={`${activeTab === "scheda" ? "block" : "hidden"} lg:block`}
-          >
-            <div className="rounded-lg border bg-card">
-              <div className="p-4 border-b flex items-center gap-2">
-                <ListChecks className="h-4 w-4 text-muted-foreground" />
-                <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                  Esercizi scheda · <span className="font-mono">{rows.length}</span>
-                </h2>
               </div>
 
               {rows.length === 0 ? (
                 <div className="p-10 text-center">
-                  <div className="mx-auto h-12 w-12 grid place-items-center rounded-full bg-secondary">
+                  <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-secondary">
                     <Dumbbell className="h-5 w-5 text-muted-foreground" />
                   </div>
-                  <h3 className="mt-4 font-semibold text-sm">Nessun esercizio</h3>
+                  <h3 className="mt-4 text-sm font-semibold">Nessun esercizio</h3>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Aggiungi esercizi dal catalogo a fianco.
+                    Aggiungi esercizi dal catalogo.
                   </p>
                   <Button
                     variant="outline"
@@ -665,25 +464,22 @@ function SchedaDetailPage() {
                     const editing = editingRowId === r.id;
                     return (
                       <div key={r.id}>
-                        <div className="flex items-start justify-between gap-2 px-4 py-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-xs font-mono text-muted-foreground w-6">
+                        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3">
+                          <div className="min-w-0">
+                            <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2">
+                              <span className="w-7 shrink-0 font-mono text-xs text-muted-foreground">
                                 {String(idx + 1).padStart(2, "0")}
                               </span>
-                              <div className="font-medium text-sm">
-                                {r.esercizio?.name ?? "Esercizio"}
+                              <div className="min-w-0">
+                                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                  <span className="min-w-0 truncate text-sm font-medium">
+                                    {r.esercizio?.name ?? "Esercizio"}
+                                  </span>
+                                  {cat && <CategoryBadge label={cat.label} color={cat.color} />}
+                                </div>
                               </div>
-                              {cat && (
-                                <span
-                                  className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full text-white"
-                                  style={{ backgroundColor: cat.color }}
-                                >
-                                  {cat.label}
-                                </span>
-                              )}
                             </div>
-                            <div className="mt-1 ml-8 text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
+                            <div className="mt-2 ml-9 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                               {r.sets != null && r.reps && (
                                 <span>
                                   {r.sets} × {r.reps}
@@ -698,7 +494,7 @@ function SchedaDetailPage() {
                               {r.notes && <span className="italic">{r.notes}</span>}
                             </div>
                           </div>
-                          <div className="flex items-center gap-1 shrink-0">
+                          <div className="flex shrink-0 items-start gap-1">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -706,91 +502,39 @@ function SchedaDetailPage() {
                                 editing ? setEditingRowId(null) : startEditRow(r)
                               }
                               className="text-muted-foreground hover:text-foreground"
+                              aria-label={editing ? "Chiudi modifica" : "Modifica esercizio"}
                             >
-                              {editing ? (
-                                <X className="h-4 w-4" />
-                              ) : (
-                                <Pencil className="h-4 w-4" />
-                              )}
+                              {editing ? <X className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => removeRow(r.id)}
                               className="text-muted-foreground hover:text-destructive"
+                              aria-label="Elimina esercizio"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </div>
+
                         {editing && (
-                          <div className="px-4 pb-4 pt-1 bg-muted/30 space-y-3">
-                            <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <Label htmlFor={`e-sets-${r.id}`}>Serie</Label>
-                                <Input
-                                  id={`e-sets-${r.id}`}
-                                  type="number"
-                                  min={1}
-                                  value={editSets}
-                                  onChange={(ev) => setEditSets(ev.target.value)}
-                                />
-                              </div>
-                              <div>
-                                <Label htmlFor={`e-reps-${r.id}`}>Reps</Label>
-                                <Input
-                                  id={`e-reps-${r.id}`}
-                                  value={editReps}
-                                  onChange={(ev) => setEditReps(ev.target.value)}
-                                />
-                              </div>
-                              <div>
-                                <Label htmlFor={`e-load-${r.id}`}>Carico</Label>
-                                <Input
-                                  id={`e-load-${r.id}`}
-                                  type="number"
-                                  step="0.5"
-                                  value={editLoad}
-                                  onChange={(ev) => setEditLoad(ev.target.value)}
-                                />
-                              </div>
-                              <div>
-                                <Label htmlFor={`e-unit-${r.id}`}>Unità</Label>
-                                <select
-                                  id={`e-unit-${r.id}`}
-                                  value={editUnit}
-                                  onChange={(ev) => setEditUnit(ev.target.value)}
-                                  className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-                                >
-                                  {UNIT_OPTIONS.map((u) => (
-                                    <option key={u} value={u}>
-                                      {u}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                              <div className="col-span-2">
-                                <Label htmlFor={`e-rpe-${r.id}`}>RPE target</Label>
-                                <Input
-                                  id={`e-rpe-${r.id}`}
-                                  type="number"
-                                  min={1}
-                                  max={10}
-                                  step="0.5"
-                                  value={editRpe}
-                                  onChange={(ev) => setEditRpe(ev.target.value)}
-                                />
-                              </div>
-                              <div className="col-span-2">
-                                <Label htmlFor={`e-notes-${r.id}`}>Note</Label>
-                                <Textarea
-                                  id={`e-notes-${r.id}`}
-                                  rows={2}
-                                  value={editNotes}
-                                  onChange={(ev) => setEditNotes(ev.target.value)}
-                                />
-                              </div>
-                            </div>
+                          <div className="space-y-3 bg-muted/30 px-4 pb-4 pt-1">
+                            <ExerciseFields
+                              idPrefix={`edit-${r.id}`}
+                              sets={editSets}
+                              reps={editReps}
+                              load={editLoad}
+                              unit={editUnit}
+                              rpe={editRpe}
+                              notes={editNotes}
+                              onSets={setEditSets}
+                              onReps={setEditReps}
+                              onLoad={setEditLoad}
+                              onUnit={setEditUnit}
+                              onRpe={setEditRpe}
+                              onNotes={setEditNotes}
+                            />
                             <div className="flex justify-end gap-2">
                               <Button
                                 variant="outline"
@@ -804,9 +548,7 @@ function SchedaDetailPage() {
                                 onClick={() => saveEditRow(r.id)}
                                 disabled={editSaving}
                               >
-                                {editSaving && (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                )}
+                                {editSaving && <Loader2 className="h-4 w-4 animate-spin" />}
                                 Salva
                               </Button>
                             </div>
@@ -815,6 +557,142 @@ function SchedaDetailPage() {
                       </div>
                     );
                   })}
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className={`${activeTab === "catalogo" ? "block" : "hidden"} lg:block`}>
+            <div className="rounded-lg border bg-card">
+              <div className="space-y-3 border-b p-4">
+                <div className="flex min-w-0 items-center gap-2">
+                  <BookOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <h2 className="truncate text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                    Catalogo
+                  </h2>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Cerca esercizio..."
+                    value={catalogSearch}
+                    onChange={(e) => setCatalogSearch(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <div className="flex gap-2 overflow-x-auto px-1 pb-1">
+                  <CategoryPill
+                    label="Tutti"
+                    active={categoryFilter === null}
+                    onClick={() => setCategoryFilter(null)}
+                  />
+                  {CATEGORIES.map((c) => (
+                    <CategoryPill
+                      key={c.value}
+                      label={c.label}
+                      color={c.color}
+                      active={categoryFilter === c.value}
+                      onClick={() => setCategoryFilter(c.value)}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="max-h-[70vh] overflow-y-auto divide-y">
+                {loadingCatalog ? (
+                  <div className="p-8 text-center text-sm text-muted-foreground">
+                    <Loader2 className="inline h-4 w-4 animate-spin" />
+                  </div>
+                ) : catalogResults.length === 0 ? (
+                  <div className="space-y-3 p-8 text-center text-sm text-muted-foreground">
+                    <div>Nessun risultato</div>
+                    {catalogSearch.trim() && (
+                      <Button variant="outline" size="sm" onClick={createFreeExercise}>
+                        <Plus className="h-4 w-4" /> Crea “{catalogSearch.trim()}”
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  catalogResults.map((e) => {
+                    const cat = e.category ? CAT_MAP.get(e.category) : null;
+                    const expanded = expandedCatalogId === e.id;
+                    return (
+                      <div key={e.id}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (expanded) {
+                              setExpandedCatalogId(null);
+                            } else {
+                              setExpandedCatalogId(e.id);
+                              resetAddForm();
+                            }
+                          }}
+                          className="w-full px-4 py-3 text-left transition-colors hover:bg-muted/50"
+                        >
+                          <div className="flex min-w-0 flex-wrap items-center gap-2">
+                            <span className="min-w-0 truncate text-sm font-medium">{e.name}</span>
+                            {cat && <CategoryBadge label={cat.label} color={cat.color} />}
+                          </div>
+                          {e.muscle_group && (
+                            <div className="mt-0.5 text-xs text-muted-foreground">
+                              {e.muscle_group}
+                            </div>
+                          )}
+                        </button>
+
+                        {expanded && (
+                          <div className="space-y-3 bg-muted/30 px-4 pb-4 pt-1">
+                            <ExerciseFields
+                              idPrefix={`add-${e.id}`}
+                              sets={addSets}
+                              reps={addReps}
+                              load={addLoad}
+                              unit={addUnit}
+                              rpe={addRpe}
+                              notes={addNotes}
+                              onSets={setAddSets}
+                              onReps={setAddReps}
+                              onLoad={setAddLoad}
+                              onUnit={setAddUnit}
+                              onRpe={setAddRpe}
+                              onNotes={setAddNotes}
+                            />
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setExpandedCatalogId(null)}
+                              >
+                                <X className="h-4 w-4" /> Annulla
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => addExerciseFromCatalog(e)}
+                                disabled={addSaving}
+                              >
+                                {addSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                                <Plus className="h-4 w-4" /> Aggiungi
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {catalogSearch.trim() && catalogResults.length > 0 && (
+                <div className="border-t p-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={createFreeExercise}
+                  >
+                    <Plus className="h-4 w-4" /> Crea “{catalogSearch.trim()}”
+                  </Button>
                 </div>
               )}
             </div>
@@ -840,14 +718,125 @@ function CategoryPill({
     <button
       type="button"
       onClick={onClick}
-      className={`shrink-0 text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${
+      className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
         active
-          ? "text-white border-transparent"
+          ? "border-transparent text-primary-foreground"
           : "bg-background text-foreground hover:bg-muted"
       }`}
       style={active ? { backgroundColor: color ?? "hsl(var(--primary))" } : undefined}
     >
       {label}
     </button>
+  );
+}
+
+function CategoryBadge({ label, color }: { label: string; color: string }) {
+  return (
+    <span
+      className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary-foreground"
+      style={{ backgroundColor: color }}
+    >
+      {label}
+    </span>
+  );
+}
+
+function ExerciseFields({
+  idPrefix,
+  sets,
+  reps,
+  load,
+  unit,
+  rpe,
+  notes,
+  onSets,
+  onReps,
+  onLoad,
+  onUnit,
+  onRpe,
+  onNotes,
+}: {
+  idPrefix: string;
+  sets: string;
+  reps: string;
+  load: string;
+  unit: string;
+  rpe: string;
+  notes: string;
+  onSets: (value: string) => void;
+  onReps: (value: string) => void;
+  onLoad: (value: string) => void;
+  onUnit: (value: string) => void;
+  onRpe: (value: string) => void;
+  onNotes: (value: string) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <div>
+        <Label htmlFor={`${idPrefix}-sets`}>Serie</Label>
+        <Input
+          id={`${idPrefix}-sets`}
+          type="number"
+          min={1}
+          value={sets}
+          onChange={(e) => onSets(e.target.value)}
+        />
+      </div>
+      <div>
+        <Label htmlFor={`${idPrefix}-reps`}>Reps</Label>
+        <Input
+          id={`${idPrefix}-reps`}
+          placeholder="8 o 8-10"
+          value={reps}
+          onChange={(e) => onReps(e.target.value)}
+        />
+      </div>
+      <div>
+        <Label htmlFor={`${idPrefix}-load`}>Carico</Label>
+        <Input
+          id={`${idPrefix}-load`}
+          type="number"
+          step="0.5"
+          value={load}
+          onChange={(e) => onLoad(e.target.value)}
+        />
+      </div>
+      <div>
+        <Label htmlFor={`${idPrefix}-unit`}>Unità</Label>
+        <select
+          id={`${idPrefix}-unit`}
+          value={unit}
+          onChange={(e) => onUnit(e.target.value)}
+          className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+        >
+          {UNIT_OPTIONS.map((u) => (
+            <option key={u} value={u}>
+              {u}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="col-span-2">
+        <Label htmlFor={`${idPrefix}-rpe`}>RPE target</Label>
+        <Input
+          id={`${idPrefix}-rpe`}
+          type="number"
+          min={1}
+          max={10}
+          step="0.5"
+          value={rpe}
+          onChange={(e) => onRpe(e.target.value)}
+        />
+      </div>
+      <div className="col-span-2">
+        <Label htmlFor={`${idPrefix}-notes`}>Note</Label>
+        <Textarea
+          id={`${idPrefix}-notes`}
+          rows={2}
+          value={notes}
+          onChange={(e) => onNotes(e.target.value)}
+        />
+      </div>
+    </div>
   );
 }
