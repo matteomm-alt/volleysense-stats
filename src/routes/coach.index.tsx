@@ -24,11 +24,14 @@ import {
   ChevronRight,
   Activity,
   Calendar,
+  CalendarRange,
+  ClipboardList,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Team = Tables<"teams"> & { _athletesCount?: number };
+type Periodo = Tables<"periodi">;
 
 export const Route = createFileRoute("/coach/")({
   component: CoachHome,
@@ -40,6 +43,8 @@ function CoachHome() {
   const [teams, setTeams] = useState<Team[] | null>(null);
   const [loadingTeams, setLoadingTeams] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
+  const [quickPeriodoOpen, setQuickPeriodoOpen] = useState(false);
+  const [quickSchedaOpen, setQuickSchedaOpen] = useState(false);
 
   useEffect(() => {
     if (loading) return;
@@ -112,6 +117,33 @@ function CoachHome() {
           </Dialog>
         </div>
 
+        {/* Azioni rapide */}
+        <section className="mt-8">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+            Azioni rapide
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <QuickActionCard
+              icon={<Users className="h-4 w-4 text-primary" />}
+              title="Nuova squadra"
+              subtitle="Crea una squadra e ottieni il codice invito"
+              onClick={() => setCreateOpen(true)}
+            />
+            <QuickActionCard
+              icon={<CalendarRange className="h-4 w-4 text-primary" />}
+              title="Nuovo periodo"
+              subtitle="Definisci un mesociclo per una squadra"
+              onClick={() => setQuickPeriodoOpen(true)}
+            />
+            <QuickActionCard
+              icon={<ClipboardList className="h-4 w-4 text-primary" />}
+              title="Nuova scheda"
+              subtitle="Aggiungi una scheda alla settimana tipo"
+              onClick={() => setQuickSchedaOpen(true)}
+            />
+          </div>
+        </section>
+
         {/* Stats */}
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           <StatCard
@@ -151,7 +183,332 @@ function CoachHome() {
           )}
         </section>
       </main>
+
+      <Dialog open={quickPeriodoOpen} onOpenChange={setQuickPeriodoOpen}>
+        <QuickPeriodoDialog
+          teams={teams ?? []}
+          onCreated={() => setQuickPeriodoOpen(false)}
+        />
+      </Dialog>
+      <Dialog open={quickSchedaOpen} onOpenChange={setQuickSchedaOpen}>
+        <QuickSchedaDialog
+          teams={teams ?? []}
+          onCreated={() => setQuickSchedaOpen(false)}
+        />
+      </Dialog>
     </div>
+  );
+}
+
+function QuickActionCard({
+  icon,
+  title,
+  subtitle,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group text-left rounded-lg border bg-card p-4 flex items-center justify-between hover:bg-muted/50 transition-colors"
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 group-hover:bg-primary/15 transition-colors shrink-0">
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <div className="font-semibold text-sm">{title}</div>
+          <div className="text-xs text-muted-foreground truncate">{subtitle}</div>
+        </div>
+      </div>
+      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
+    </button>
+  );
+}
+
+function QuickPeriodoDialog({
+  teams,
+  onCreated,
+}: {
+  teams: Team[];
+  onCreated: () => void;
+}) {
+  const [teamId, setTeamId] = useState("");
+  const [name, setName] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!teamId || !name || !startDate || !endDate) {
+      toast.error("Compila tutti i campi");
+      return;
+    }
+    setSubmitting(true);
+    const { data: periodo, error: pErr } = await supabase
+      .from("periodi")
+      .insert({
+        team_id: teamId,
+        name,
+        start_date: startDate,
+        end_date: endDate,
+        order_index: 0,
+      })
+      .select()
+      .single();
+    if (pErr || !periodo) {
+      setSubmitting(false);
+      toast.error(pErr?.message ?? "Errore creazione periodo");
+      return;
+    }
+    const { error: sErr } = await supabase.from("settimane").insert({
+      periodo_id: periodo.id,
+      team_id: teamId,
+      week_number: 0,
+      is_template: true,
+    });
+    setSubmitting(false);
+    if (sErr) {
+      toast.error(sErr.message);
+      return;
+    }
+    toast.success("Periodo creato");
+    setTeamId("");
+    setName("");
+    setStartDate("");
+    setEndDate("");
+    onCreated();
+  };
+
+  return (
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>Nuovo periodo</DialogTitle>
+        <DialogDescription>
+          Crea un mesociclo per una squadra. Verrà generata automaticamente la settimana tipo.
+        </DialogDescription>
+      </DialogHeader>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="qp-team">Squadra *</Label>
+          <select
+            id="qp-team"
+            required
+            value={teamId}
+            onChange={(e) => setTeamId(e.target.value)}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="">Seleziona…</option>
+            {teams.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="qp-name">Nome periodo *</Label>
+          <Input
+            id="qp-name"
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="es. Preparazione generale"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="qp-start">Inizio *</Label>
+            <Input
+              id="qp-start"
+              type="date"
+              required
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="qp-end">Fine *</Label>
+            <Input
+              id="qp-end"
+              type="date"
+              required
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button type="submit" disabled={submitting}>
+            {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+            Crea periodo
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
+  );
+}
+
+function QuickSchedaDialog({
+  teams,
+  onCreated,
+}: {
+  teams: Team[];
+  onCreated: () => void;
+}) {
+  const [teamId, setTeamId] = useState("");
+  const [periodoId, setPeriodoId] = useState("");
+  const [periodi, setPeriodi] = useState<Periodo[]>([]);
+  const [loadingPeriodi, setLoadingPeriodi] = useState(false);
+  const [title, setTitle] = useState("");
+  const [dayLabel, setDayLabel] = useState("A");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!teamId) {
+      setPeriodi([]);
+      setPeriodoId("");
+      return;
+    }
+    setLoadingPeriodi(true);
+    supabase
+      .from("periodi")
+      .select("*")
+      .eq("team_id", teamId)
+      .order("start_date", { ascending: false })
+      .then(({ data, error }) => {
+        setLoadingPeriodi(false);
+        if (error) {
+          toast.error(error.message);
+          return;
+        }
+        setPeriodi(data ?? []);
+        setPeriodoId("");
+      });
+  }, [teamId]);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!teamId || !periodoId || !title) {
+      toast.error("Compila tutti i campi");
+      return;
+    }
+    setSubmitting(true);
+    const { data: sett, error: sErr } = await supabase
+      .from("settimane")
+      .select("id")
+      .eq("periodo_id", periodoId)
+      .eq("is_template", true)
+      .limit(1)
+      .maybeSingle();
+    if (sErr || !sett) {
+      setSubmitting(false);
+      toast.error(sErr?.message ?? "Settimana tipo non trovata");
+      return;
+    }
+    const { error } = await supabase.from("schede").insert({
+      team_id: teamId,
+      settimana_id: sett.id,
+      title,
+      day_label: dayLabel,
+      order_index: 0,
+    });
+    setSubmitting(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Scheda creata");
+    setTitle("");
+    setDayLabel("A");
+    onCreated();
+  };
+
+  return (
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>Nuova scheda</DialogTitle>
+        <DialogDescription>
+          Aggiungi una scheda alla settimana tipo di un periodo.
+        </DialogDescription>
+      </DialogHeader>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="qs-team">Squadra *</Label>
+          <select
+            id="qs-team"
+            required
+            value={teamId}
+            onChange={(e) => setTeamId(e.target.value)}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="">Seleziona…</option>
+            {teams.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="qs-periodo">Periodo *</Label>
+          <select
+            id="qs-periodo"
+            required
+            disabled={!teamId || loadingPeriodi}
+            value={periodoId}
+            onChange={(e) => setPeriodoId(e.target.value)}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50"
+          >
+            <option value="">
+              {loadingPeriodi ? "Caricamento…" : periodi.length ? "Seleziona…" : "Nessun periodo"}
+            </option>
+            {periodi.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="qs-title">Nome scheda *</Label>
+          <Input
+            id="qs-title"
+            required
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="es. Forza upper"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="qs-day">Giorno *</Label>
+          <select
+            id="qs-day"
+            value={dayLabel}
+            onChange={(e) => setDayLabel(e.target.value)}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            {["A", "B", "C", "D", "E"].map((d) => (
+              <option key={d} value={d}>
+                Giorno {d}
+              </option>
+            ))}
+          </select>
+        </div>
+        <DialogFooter>
+          <Button type="submit" disabled={submitting}>
+            {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+            Crea scheda
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
   );
 }
 

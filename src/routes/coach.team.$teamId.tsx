@@ -5,6 +5,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +27,7 @@ import {
   CalendarRange,
   ClipboardList,
   ChevronRight,
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
@@ -32,6 +36,7 @@ type Team = Tables<"teams">;
 type Member = Tables<"team_members"> & {
   profile?: { full_name: string | null; avatar_url: string | null };
 };
+type Placeholder = Tables<"atleti_placeholder">;
 
 export const Route = createFileRoute("/coach/team/$teamId")({
   component: TeamDetailLayout,
@@ -47,8 +52,15 @@ export function TeamDetailPage() {
   const navigate = useNavigate();
   const [team, setTeam] = useState<Team | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
+  const [placeholders, setPlaceholders] = useState<Placeholder[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [phName, setPhName] = useState("");
+  const [phEmail, setPhEmail] = useState("");
+  const [phPhone, setPhPhone] = useState("");
+  const [phBirth, setPhBirth] = useState("");
+  const [phNotes, setPhNotes] = useState("");
+  const [phSubmitting, setPhSubmitting] = useState(false);
 
   useEffect(() => {
     if (loading) return;
@@ -59,20 +71,27 @@ export function TeamDetailPage() {
 
   const fetchData = async () => {
     setLoadingData(true);
-    const [{ data: t, error: tErr }, { data: m, error: mErr }] = await Promise.all([
+    const [{ data: t, error: tErr }, { data: m, error: mErr }, { data: ph, error: phErr }] = await Promise.all([
       supabase.from("teams").select("*").eq("id", teamId).maybeSingle(),
       supabase
         .from("team_members")
         .select("*")
         .eq("team_id", teamId)
         .order("joined_at", { ascending: true }),
+      supabase
+        .from("atleti_placeholder")
+        .select("*")
+        .eq("team_id", teamId)
+        .is("linked_athlete_id", null)
+        .order("created_at", { ascending: false }),
     ]);
-    if (tErr || mErr) {
-      toast.error((tErr || mErr)!.message);
+    if (tErr || mErr || phErr) {
+      toast.error((tErr || mErr || phErr)!.message);
       setLoadingData(false);
       return;
     }
     setTeam(t);
+    setPlaceholders(ph ?? []);
 
     // Fetch profiles separately (no FK in types between team_members and profiles)
     const ids = (m ?? []).map((mm) => mm.athlete_id);
@@ -113,6 +132,49 @@ export function TeamDetailPage() {
       return;
     }
     toast.success("Atleta rimosso");
+    fetchData();
+  };
+
+  const removePlaceholder = async (id: string) => {
+    if (!confirm("Rimuovere l'atleta in attesa?")) return;
+    const { error } = await supabase.from("atleti_placeholder").delete().eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Atleta rimosso");
+    fetchData();
+  };
+
+  const addPlaceholder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session?.user) return;
+    const name = phName.trim();
+    if (!name) {
+      toast.error("Nome obbligatorio");
+      return;
+    }
+    setPhSubmitting(true);
+    const { error } = await supabase.from("atleti_placeholder").insert({
+      team_id: teamId,
+      full_name: name,
+      email: phEmail.trim() || null,
+      phone: phPhone.trim() || null,
+      birth_date: phBirth || null,
+      notes: phNotes.trim() || null,
+      created_by: session.user.id,
+    });
+    setPhSubmitting(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Atleta aggiunto");
+    setPhName("");
+    setPhEmail("");
+    setPhPhone("");
+    setPhBirth("");
+    setPhNotes("");
     fetchData();
   };
 
@@ -236,6 +298,109 @@ export function TeamDetailPage() {
               ))}
             </div>
           )}
+        </section>
+
+        {placeholders.length > 0 && (
+          <section className="mt-8">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              In attesa di registrazione · <span className="font-mono">{placeholders.length}</span>
+            </h2>
+            <div className="mt-4 rounded-lg border bg-card divide-y">
+              {placeholders.map((p) => (
+                <div key={p.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="grid h-9 w-9 place-items-center rounded-full bg-secondary text-muted-foreground">
+                      <Clock className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-medium truncate">{p.full_name}</div>
+                      {p.email && (
+                        <div className="text-xs text-muted-foreground truncate">{p.email}</div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge className="bg-orange-500/15 text-orange-600 hover:bg-orange-500/15 border-transparent">
+                      In attesa
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removePlaceholder(p.id)}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section className="mt-8">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Aggiungi atleta
+          </h2>
+          <form onSubmit={addPlaceholder} className="mt-4 rounded-lg border bg-card p-5 space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="ph-name">Nome e cognome *</Label>
+                <Input
+                  id="ph-name"
+                  required
+                  value={phName}
+                  onChange={(e) => setPhName(e.target.value)}
+                  placeholder="es. Giulia Rossi"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ph-email">Email</Label>
+                <Input
+                  id="ph-email"
+                  type="email"
+                  value={phEmail}
+                  onChange={(e) => setPhEmail(e.target.value)}
+                  placeholder="atleta@email.it"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ph-phone">Telefono</Label>
+                <Input
+                  id="ph-phone"
+                  type="tel"
+                  value={phPhone}
+                  onChange={(e) => setPhPhone(e.target.value)}
+                  placeholder="+39 …"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ph-birth">Data di nascita</Label>
+                <Input
+                  id="ph-birth"
+                  type="date"
+                  value={phBirth}
+                  onChange={(e) => setPhBirth(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="ph-notes">Note</Label>
+                <Textarea
+                  id="ph-notes"
+                  rows={3}
+                  value={phNotes}
+                  onChange={(e) => setPhNotes(e.target.value)}
+                  placeholder="Ruolo, note mediche, ecc."
+                />
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button type="submit" disabled={phSubmitting}>
+                {phSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                <UserPlus className="h-4 w-4" /> Aggiungi atleta
+              </Button>
+            </div>
+          </form>
         </section>
       </main>
 
