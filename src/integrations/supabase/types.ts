@@ -405,11 +405,15 @@ export type Database = {
           athlete_id: string | null
           created_at: string
           created_by: string | null
+          day_label: string | null
+          day_order: number
           description: string | null
           id: string
           is_template: boolean
           order_index: number
           periodo_id: string | null
+          scheda_type: string | null
+          settimana_id: string | null
           team_id: string
           title: string
           updated_at: string
@@ -418,11 +422,15 @@ export type Database = {
           athlete_id?: string | null
           created_at?: string
           created_by?: string | null
+          day_label?: string | null
+          day_order?: number
           description?: string | null
           id?: string
           is_template?: boolean
           order_index?: number
           periodo_id?: string | null
+          scheda_type?: string | null
+          settimana_id?: string | null
           team_id: string
           title: string
           updated_at?: string
@@ -431,11 +439,15 @@ export type Database = {
           athlete_id?: string | null
           created_at?: string
           created_by?: string | null
+          day_label?: string | null
+          day_order?: number
           description?: string | null
           id?: string
           is_template?: boolean
           order_index?: number
           periodo_id?: string | null
+          scheda_type?: string | null
+          settimana_id?: string | null
           team_id?: string
           title?: string
           updated_at?: string
@@ -446,6 +458,13 @@ export type Database = {
             columns: ["periodo_id"]
             isOneToOne: false
             referencedRelation: "periodi"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schede_settimana_id_fkey"
+            columns: ["settimana_id"]
+            isOneToOne: false
+            referencedRelation: "settimane"
             referencedColumns: ["id"]
           },
           {
