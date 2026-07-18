@@ -278,6 +278,20 @@ export function TeamDetailPage() {
                 <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
               </div>
             </Link>
+            <Link to="/coach/team/$teamId/calendario" params={{ teamId }}>
+              <div className="rounded-lg border bg-card p-4 flex items-center justify-between hover:bg-muted/50 transition-colors cursor-pointer group">
+                <div className="flex items-center gap-3">
+                  <div className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 group-hover:bg-primary/15 transition-colors">
+                    <Calendar className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-sm">Calendario</div>
+                    <div className="text-xs text-muted-foreground">Eventi, allenamenti e gare</div>
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+              </div>
+            </Link>
           </div>
         </section>
 
