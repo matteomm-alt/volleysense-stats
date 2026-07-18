@@ -581,6 +581,57 @@ export type Database = {
           },
         ]
       }
+      settimane: {
+        Row: {
+          created_at: string
+          id: string
+          is_template: boolean
+          load_increment_pct: number
+          notes: string | null
+          periodo_id: string
+          team_id: string
+          updated_at: string
+          week_number: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_template?: boolean
+          load_increment_pct?: number
+          notes?: string | null
+          periodo_id: string
+          team_id: string
+          updated_at?: string
+          week_number?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_template?: boolean
+          load_increment_pct?: number
+          notes?: string | null
+          periodo_id?: string
+          team_id?: string
+          updated_at?: string
+          week_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "settimane_periodo_id_fkey"
+            columns: ["periodo_id"]
+            isOneToOne: false
+            referencedRelation: "periodi"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settimane_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_coaches: {
         Row: {
           added_at: string
