@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      atleti_placeholder: {
+        Row: {
+          birth_date: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          full_name: string
+          id: string
+          linked_at: string | null
+          linked_athlete_id: string | null
+          notes: string | null
+          phone: string | null
+          team_id: string
+        }
+        Insert: {
+          birth_date?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          full_name: string
+          id?: string
+          linked_at?: string | null
+          linked_athlete_id?: string | null
+          notes?: string | null
+          phone?: string | null
+          team_id: string
+        }
+        Update: {
+          birth_date?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          full_name?: string
+          id?: string
+          linked_at?: string | null
+          linked_athlete_id?: string | null
+          notes?: string | null
+          phone?: string | null
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atleti_placeholder_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attendance: {
         Row: {
           athlete_id: string
