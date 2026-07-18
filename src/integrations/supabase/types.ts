@@ -153,6 +153,57 @@ export type Database = {
         }
         Relationships: []
       }
+      eventi_calendario: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          data: string
+          id: string
+          note: string | null
+          scheda_id: string | null
+          team_id: string
+          tipo: string
+          titolo: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          data: string
+          id?: string
+          note?: string | null
+          scheda_id?: string | null
+          team_id: string
+          tipo?: string
+          titolo?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          id?: string
+          note?: string | null
+          scheda_id?: string | null
+          team_id?: string
+          tipo?: string
+          titolo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eventi_calendario_scheda_id_fkey"
+            columns: ["scheda_id"]
+            isOneToOne: false
+            referencedRelation: "schede"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eventi_calendario_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       infortuni: {
         Row: {
           actual_return_date: string | null
