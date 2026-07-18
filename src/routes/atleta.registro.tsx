@@ -548,6 +548,21 @@ function RegistroPage() {
 
         {/* ── ESERCIZI ─────────────────────────────────────────────────── */}
         <section className="rounded-xl border bg-card p-5 space-y-4">
+          {showSchedaBanner && assignedScheda && (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-xs font-semibold uppercase tracking-wider text-primary">Scheda assegnata</div>
+                <div className="text-sm font-medium truncate">{assignedScheda.title}</div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Button size="sm" variant="ghost" onClick={() => setShowSchedaBanner(false)}>Ignora</Button>
+                <Button size="sm" onClick={loadSchedaEsercizi} disabled={loadingScheda}>
+                  {loadingScheda && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  Carica esercizi
+                </Button>
+              </div>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               Esercizi eseguiti
