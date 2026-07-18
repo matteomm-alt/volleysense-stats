@@ -828,7 +828,6 @@ export type Database = {
     }
     Functions: {
       generate_invite_code: { Args: never; Returns: string }
-      join_team_with_code: { Args: { _code: string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "coach" | "atleta"
