@@ -707,42 +707,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      coach_owns_athlete: {
-        Args: { _athlete_id: string; _coach_id: string }
-        Returns: boolean
-      }
       generate_invite_code: { Args: never; Returns: string }
-      get_user_role: {
-        Args: { _user_id: string }
-        Returns: Database["public"]["Enums"]["app_role"]
-      }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
-      infortunio_athlete_id: {
-        Args: { _infortunio_id: string }
-        Returns: string
-      }
-      is_team_coach: {
-        Args: { _team_id: string; _user_id: string }
-        Returns: boolean
-      }
-      is_team_member: {
-        Args: { _team_id: string; _user_id: string }
-        Returns: boolean
-      }
-      is_team_member_direct: {
-        Args: { _team_id: string; _user_id: string }
-        Returns: boolean
-      }
       join_team_with_code: { Args: { _code: string }; Returns: string }
-      scheda_team_id: { Args: { _scheda_id: string }; Returns: string }
-      session_athlete_id: { Args: { _session_id: string }; Returns: string }
-      session_team_id: { Args: { _session_id: string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "coach" | "atleta"
