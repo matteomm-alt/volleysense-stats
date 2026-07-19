@@ -35,6 +35,7 @@ import {
   RefreshCw,
   Users,
   User,
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -296,7 +297,13 @@ function PeriodiPage() {
   // ── Crea scheda / giorno ────────────────────────────────────────────────
   const handleCreateScheda = async (
     settimana: SettimanaRow,
-    payload: { title: string; day_label: string; scheda_type: string; athlete_id: string | null },
+    payload: {
+      title: string;
+      day_label: string;
+      scheda_type: string;
+      athlete_id: string | null;
+      placeholder_id: string | null;
+    },
   ) => {
     // day_order: reuse existing day_order for same day_label if present, else next
     const existingSameLabel = settimana.schede.find(
@@ -781,7 +788,10 @@ function PeriodoCard({
   onOpenAddScheda: (settimanaId: string) => void;
   openAddSchedaFor: string | null;
   onCancelAddScheda: () => void;
-  onCreateScheda: (s: SettimanaRow, p: { title: string; day_label: string; scheda_type: string; athlete_id: string | null }) => void;
+  onCreateScheda: (
+    s: SettimanaRow,
+    p: { title: string; day_label: string; scheda_type: string; athlete_id: string | null; placeholder_id: string | null },
+  ) => void;
   onDeleteScheda: (id: string) => void;
   onDuplicateScheda: (s: SchedaRow) => void;
   onUpdateLoad: (settimanaId: string, pct: number) => void;
@@ -856,7 +866,7 @@ function SettimanaRowView({
   addingScheda: boolean;
   onOpenAdd: () => void;
   onCancelAdd: () => void;
-  onCreate: (p: { title: string; day_label: string; scheda_type: string; athlete_id: string | null }) => void;
+  onCreate: (p: { title: string; day_label: string; scheda_type: string; athlete_id: string | null; placeholder_id: string | null }) => void;
   onDeleteScheda: (id: string) => void;
   onDuplicateScheda: (s: SchedaRow) => void;
   onUpdateLoad: (pct: number) => void;
@@ -882,9 +892,16 @@ function SettimanaRowView({
     return Array.from(map.entries()).sort((a, b) => a[0] - b[0]);
   })();
 
-  const rosterName = (id: string | null) => {
-    if (!id) return "Tutta la squadra";
-    return roster.find((r) => r.athlete_id === id)?.full_name ?? "Atleta";
+  const rosterName = (sc: SchedaRow): { name: string; isPlaceholder: boolean } => {
+    if (sc.placeholder_id) {
+      const p = roster.find((r) => r.kind === "placeholder" && r.id === sc.placeholder_id);
+      return { name: p?.full_name ?? "Atleta", isPlaceholder: true };
+    }
+    if (sc.athlete_id) {
+      const a = roster.find((r) => r.kind === "athlete" && r.id === sc.athlete_id);
+      return { name: a?.full_name ?? "Atleta", isPlaceholder: false };
+    }
+    return { name: "Tutta la squadra", isPlaceholder: false };
   };
 
   const nextDayOrder =
@@ -960,14 +977,32 @@ function SettimanaRowView({
                 {g.schede.map((sc) => (
                   <div key={sc.id} className="flex items-center gap-2 px-3 py-1.5 group hover:bg-muted/30">
                     <div className="shrink-0 text-muted-foreground">
-                      {sc.athlete_id ? <User className="h-3.5 w-3.5" /> : <Users className="h-3.5 w-3.5" />}
+                      {sc.placeholder_id ? (
+                        <Clock className="h-3.5 w-3.5" />
+                      ) : sc.athlete_id ? (
+                        <User className="h-3.5 w-3.5" />
+                      ) : (
+                        <Users className="h-3.5 w-3.5" />
+                      )}
                     </div>
                     <Link
                       to="/coach/team/$teamId/schede/$schedaId"
                       params={{ teamId, schedaId: sc.id }}
-                      className="flex-1 min-w-0 text-sm truncate hover:text-foreground"
+                      className="flex-1 min-w-0 text-sm truncate hover:text-foreground flex items-center gap-2"
                     >
-                      {rosterName(sc.athlete_id)}
+                      {(() => {
+                        const info = rosterName(sc);
+                        return (
+                          <>
+                            <span className="truncate">{info.name}</span>
+                            {info.isPlaceholder && (
+                              <Badge className="bg-orange-500/15 text-orange-600 hover:bg-orange-500/15 border-transparent text-[10px] py-0 px-1.5">
+                                In attesa
+                              </Badge>
+                            )}
+                          </>
+                        );
+                      })()}
                     </Link>
                     <button
                       onClick={() => onDuplicateScheda(sc)}
@@ -1090,7 +1125,9 @@ function AddSchedaInline({
             <SelectContent>
               <SelectItem value={TEAM_VALUE}>Tutta la squadra</SelectItem>
               {roster.map((r) => (
-                <SelectItem key={r.athlete_id} value={r.athlete_id}>{r.full_name}</SelectItem>
+                <SelectItem key={r.key} value={r.key}>
+                  {r.full_name}{r.kind === "placeholder" ? " · In attesa" : ""}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -1102,11 +1139,19 @@ function AddSchedaInline({
           size="sm"
           onClick={() => {
             if (!title.trim()) return toast.error("Inserisci un nome");
+            let athlete_id: string | null = null;
+            let placeholder_id: string | null = null;
+            if (!isTemplate && athleteValue !== TEAM_VALUE) {
+              const entry = roster.find((r) => r.key === athleteValue);
+              if (entry?.kind === "athlete") athlete_id = entry.id;
+              else if (entry?.kind === "placeholder") placeholder_id = entry.id;
+            }
             onCreate({
               title: title.trim(),
               day_label: dayLabel.trim(),
               scheda_type: type,
-              athlete_id: isTemplate ? null : athleteValue === TEAM_VALUE ? null : athleteValue,
+              athlete_id,
+              placeholder_id,
             });
           }}
         >
