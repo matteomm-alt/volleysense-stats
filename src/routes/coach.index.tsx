@@ -26,6 +26,7 @@ import {
   Calendar,
   CalendarRange,
   ClipboardList,
+  Gauge,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
@@ -122,7 +123,7 @@ function CoachHome() {
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
             Azioni rapide
           </h2>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <QuickActionCard
               icon={<Users className="h-4 w-4 text-primary" />}
               title="Nuova squadra"
@@ -141,6 +142,23 @@ function CoachHome() {
               subtitle="Aggiungi una scheda alla settimana tipo"
               onClick={() => setQuickSchedaOpen(true)}
             />
+            <Link
+              to="/coach/test"
+              className="group text-left rounded-lg border bg-card p-4 flex items-center justify-between hover:bg-muted/50 transition-colors"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 group-hover:bg-primary/15 transition-colors shrink-0">
+                  <Gauge className="h-4 w-4 text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm">Test atletici</div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    Registra e confronta i risultati dei test
+                  </div>
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
+            </Link>
           </div>
         </section>
 
