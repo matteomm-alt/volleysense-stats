@@ -513,6 +513,7 @@ export type Database = {
           is_template: boolean
           order_index: number
           periodo_id: string | null
+          placeholder_id: string | null
           scheda_type: string | null
           settimana_id: string | null
           team_id: string
@@ -530,6 +531,7 @@ export type Database = {
           is_template?: boolean
           order_index?: number
           periodo_id?: string | null
+          placeholder_id?: string | null
           scheda_type?: string | null
           settimana_id?: string | null
           team_id: string
@@ -547,6 +549,7 @@ export type Database = {
           is_template?: boolean
           order_index?: number
           periodo_id?: string | null
+          placeholder_id?: string | null
           scheda_type?: string | null
           settimana_id?: string | null
           team_id?: string
@@ -559,6 +562,13 @@ export type Database = {
             columns: ["periodo_id"]
             isOneToOne: false
             referencedRelation: "periodi"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schede_placeholder_id_fkey"
+            columns: ["placeholder_id"]
+            isOneToOne: false
+            referencedRelation: "atleti_placeholder"
             referencedColumns: ["id"]
           },
           {
