@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, ChevronLeft, Plus, Trash2, ChevronDown, ChevronUp, Save, Dumbbell } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
+import { findCurrentWeeksForTeam } from "@/lib/currentWeek";
 
 // ─── Tipi ─────────────────────────────────────────────────────────────────────
 
@@ -145,24 +146,10 @@ function RegistroPage() {
       return;
     }
     (async () => {
-      const today = new Date().toISOString().split("T")[0];
-      const { data: periodi } = await supabase
-        .from("periodi")
-        .select("id")
-        .eq("team_id", selectedTeamId)
-        .lte("start_date", today)
-        .gte("end_date", today);
-      const periodoIds = (periodi ?? []).map((p) => p.id);
-      if (!periodoIds.length) { setAssignedScheda(null); setShowSchedaBanner(false); return; }
+      const currentWeeks = await findCurrentWeeksForTeam(selectedTeamId);
+      if (!currentWeeks.length) { setAssignedScheda(null); setShowSchedaBanner(false); return; }
 
-      const { data: sett } = await supabase
-        .from("settimane")
-        .select("id")
-        .in("periodo_id", periodoIds)
-        .eq("is_template", false);
-      const settIds = (sett ?? []).map((s) => s.id);
-      if (!settIds.length) { setAssignedScheda(null); setShowSchedaBanner(false); return; }
-
+      const settIds = currentWeeks.map((w) => w.settimana_id);
       const { data: schede } = await supabase
         .from("schede")
         .select("id, title, athlete_id")
