@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ChevronLeft, Plus, Trash2, ChevronDown, ChevronUp, Save, Dumbbell } from "lucide-react";
+import { Loader2, ChevronLeft, Plus, Trash2, ChevronDown, ChevronUp, Save, Dumbbell, Gauge } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import { findCurrentWeeksForTeam } from "@/lib/currentWeek";
