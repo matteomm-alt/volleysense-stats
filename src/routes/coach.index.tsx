@@ -412,12 +412,30 @@ function QuickSchedaDialog({
       toast.error(sErr?.message ?? "Settimana tipo non trovata");
       return;
     }
+    const { data: existing, error: exErr } = await supabase
+      .from("schede")
+      .select("day_label, day_order")
+      .eq("settimana_id", sett.id);
+    if (exErr) {
+      setSubmitting(false);
+      toast.error(exErr.message);
+      return;
+    }
+    const sameLabel = (existing ?? []).find(
+      (s) => (s.day_label ?? "") === dayLabel && !!dayLabel,
+    );
+    const day_order = sameLabel
+      ? (sameLabel.day_order ?? 0)
+      : (existing ?? []).length > 0
+        ? Math.max(...(existing ?? []).map((s) => s.day_order ?? 0)) + 1
+        : 0;
     const { error } = await supabase.from("schede").insert({
       team_id: teamId,
       settimana_id: sett.id,
       title,
       day_label: dayLabel,
-      order_index: 0,
+      day_order,
+      order_index: day_order,
     });
     setSubmitting(false);
     if (error) {
