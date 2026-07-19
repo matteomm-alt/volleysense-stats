@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ChevronLeft, Plus, Trash2, ChevronDown, ChevronUp, Save, Dumbbell } from "lucide-react";
+import { Loader2, ChevronLeft, Plus, Trash2, ChevronDown, ChevronUp, Save, Dumbbell, Gauge } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import { findCurrentWeeksForTeam } from "@/lib/currentWeek";
@@ -110,6 +110,18 @@ function RegistroPage() {
   const [assignedScheda, setAssignedScheda] = useState<{ id: string; title: string } | null>(null);
   const [showSchedaBanner, setShowSchedaBanner] = useState(false);
   const [loadingScheda, setLoadingScheda] = useState(false);
+
+  type PrSuggestion = {
+    tipoTestId: string;
+    tipoName: string;
+    unit: string;
+    higherIsBetter: boolean;
+    value: number;
+    exerciseName: string;
+  };
+  const [prSuggestions, setPrSuggestions] = useState<PrSuggestion[]>([]);
+  const [savedPrs, setSavedPrs] = useState<Set<string>>(new Set());
+  const [savingPrId, setSavingPrId] = useState<string | null>(null);
 
   // ─── Auth guard ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -255,10 +267,10 @@ function RegistroPage() {
 
       if (sessErr || !sess) throw sessErr ?? new Error("Errore sessione");
 
+      // Lookup + insert batch nel catalogo, evitando N+1
+      const esercizioIds: Record<string, string> = {};
       // 2. Inserisci set_logs per ogni esercizio
       if (exercises.length) {
-        // Lookup + insert batch nel catalogo, evitando N+1
-        const esercizioIds: Record<string, string> = {};
         const validExercises = exercises.filter((ex) => ex.name.trim().length > 0);
         const uniqueNames = Array.from(
           new Set(validExercises.map((ex) => ex.name.trim()))
@@ -325,13 +337,84 @@ function RegistroPage() {
       }
 
       toast.success("Seduta salvata!");
+
+      // Rileva test collegati agli esercizi svolti
+      const suggestions: PrSuggestion[] = [];
+      try {
+        const validExercises = exercises.filter((ex) => ex.name.trim().length > 0);
+        const esercizioIdSet = new Set<string>();
+        const nameById = new Map<string, string>();
+        validExercises.forEach((ex) => {
+          if (esercizioIds[ex.id]) {
+            esercizioIdSet.add(esercizioIds[ex.id]);
+            nameById.set(esercizioIds[ex.id], ex.name.trim());
+          }
+        });
+        if (esercizioIdSet.size > 0) {
+          const { data: tipi } = await supabase
+            .from("tipi_test")
+            .select("id, name, unit, higher_is_better, esercizio_id")
+            .in("esercizio_id", Array.from(esercizioIdSet));
+          (tipi ?? []).forEach((t) => {
+            if (!t.esercizio_id) return;
+            // massimo carico registrato per quell'esercizio in questa seduta
+            const rowsForEx = validExercises.filter(
+              (ex) => esercizioIds[ex.id] === t.esercizio_id,
+            );
+            const maxLoad = rowsForEx.reduce((m, ex) => {
+              const v = ex.load ? parseFloat(ex.load) : NaN;
+              return !Number.isNaN(v) && v > m ? v : m;
+            }, -Infinity);
+            if (maxLoad === -Infinity) return;
+            suggestions.push({
+              tipoTestId: t.id,
+              tipoName: t.name,
+              unit: t.unit,
+              higherIsBetter: t.higher_is_better,
+              value: maxLoad,
+              exerciseName: nameById.get(t.esercizio_id) ?? "",
+            });
+          });
+        }
+      } catch {
+        // ignoriamo errori: le PR sono opzionali
+      }
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      navigate({ to: "/atleta" as any });
+      const _navigate: any = navigate;
+      if (suggestions.length > 0) {
+        setPrSuggestions(suggestions);
+        setSavedPrs(new Set());
+      } else {
+        _navigate({ to: "/atleta" });
+      }
     } catch (err: unknown) {
       toast.error((err as Error)?.message ?? "Errore nel salvataggio");
     } finally {
       setSaving(false);
     }
+  };
+
+  const markPr = async (s: PrSuggestion) => {
+    if (!session?.user || !selectedTeamId) return;
+    setSavingPrId(s.tipoTestId);
+    const { error } = await supabase.from("test_risultati").insert({
+      team_id: selectedTeamId,
+      athlete_id: session.user.id,
+      placeholder_id: null,
+      tipo_test_id: s.tipoTestId,
+      value: s.value,
+      tested_at: sessionDate,
+      notes: `Registrato da seduta — ${s.exerciseName}`,
+      created_by: session.user.id,
+    });
+    setSavingPrId(null);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(`Nuovo ${s.tipoName} registrato`);
+    setSavedPrs((prev) => new Set(prev).add(s.tipoTestId));
   };
 
   // ─── Loading ────────────────────────────────────────────────────────────────
@@ -629,6 +712,60 @@ function RegistroPage() {
             )}
           </div>
         </section>
+
+        {/* ── PR SUGGESTIONS ────────────────────────────────────────────── */}
+        {prSuggestions.length > 0 && (
+          <section className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Gauge className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-semibold">Aggiorna i tuoi test?</h3>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Abbiamo trovato esercizi collegati a test atletici. Vuoi registrare il carico
+              massimo di oggi come nuovo risultato?
+            </p>
+            <div className="space-y-2">
+              {prSuggestions.map((s) => {
+                const done = savedPrs.has(s.tipoTestId);
+                const loading = savingPrId === s.tipoTestId;
+                return (
+                  <div
+                    key={s.tipoTestId}
+                    className="flex items-center justify-between gap-3 rounded-md bg-background p-3 border"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium">{s.tipoName}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {s.exerciseName} · {s.value} {s.unit}
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={done ? "outline" : "default"}
+                      disabled={done || loading}
+                      onClick={() => markPr(s)}
+                    >
+                      {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      {done ? "Salvato ✓" : `Segna come nuovo ${s.tipoName}`}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex justify-end">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  (navigate as any)({ to: "/atleta" });
+                }}
+              >
+                Fine
+              </Button>
+            </div>
+          </section>
+        )}
 
         {/* ── SALVA ────────────────────────────────────────────────────── */}
         <div className="pb-8">

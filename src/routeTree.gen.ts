@@ -18,6 +18,7 @@ import { Route as CoachRouteImport } from './routes/coach'
 import { Route as AtletaRouteImport } from './routes/atleta'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CoachIndexRouteImport } from './routes/coach.index'
+import { Route as CoachTestRouteImport } from './routes/coach.test'
 import { Route as AtletaStoricoRouteImport } from './routes/atleta.storico'
 import { Route as AtletaSchedeRouteImport } from './routes/atleta.schede'
 import { Route as AtletaRegistroRouteImport } from './routes/atleta.registro'
@@ -72,6 +73,11 @@ const IndexRoute = IndexRouteImport.update({
 const CoachIndexRoute = CoachIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => CoachRoute,
+} as any)
+const CoachTestRoute = CoachTestRouteImport.update({
+  id: '/test',
+  path: '/test',
   getParentRoute: () => CoachRoute,
 } as any)
 const AtletaStoricoRoute = AtletaStoricoRouteImport.update({
@@ -140,6 +146,7 @@ export interface FileRoutesByFullPath {
   '/atleta/registro': typeof AtletaRegistroRoute
   '/atleta/schede': typeof AtletaSchedeRoute
   '/atleta/storico': typeof AtletaStoricoRoute
+  '/coach/test': typeof CoachTestRoute
   '/coach/': typeof CoachIndexRoute
   '/coach/team/$teamId': typeof CoachTeamTeamIdRouteWithChildren
   '/coach/team/$teamId/calendario': typeof CoachTeamTeamIdCalendarioRoute
@@ -160,6 +167,7 @@ export interface FileRoutesByTo {
   '/atleta/registro': typeof AtletaRegistroRoute
   '/atleta/schede': typeof AtletaSchedeRoute
   '/atleta/storico': typeof AtletaStoricoRoute
+  '/coach/test': typeof CoachTestRoute
   '/coach': typeof CoachIndexRoute
   '/coach/team/$teamId/calendario': typeof CoachTeamTeamIdCalendarioRoute
   '/coach/team/$teamId/periodi': typeof CoachTeamTeamIdPeriodiRoute
@@ -181,6 +189,7 @@ export interface FileRoutesById {
   '/atleta/registro': typeof AtletaRegistroRoute
   '/atleta/schede': typeof AtletaSchedeRoute
   '/atleta/storico': typeof AtletaStoricoRoute
+  '/coach/test': typeof CoachTestRoute
   '/coach/': typeof CoachIndexRoute
   '/coach/team/$teamId': typeof CoachTeamTeamIdRouteWithChildren
   '/coach/team/$teamId/calendario': typeof CoachTeamTeamIdCalendarioRoute
@@ -204,6 +213,7 @@ export interface FileRouteTypes {
     | '/atleta/registro'
     | '/atleta/schede'
     | '/atleta/storico'
+    | '/coach/test'
     | '/coach/'
     | '/coach/team/$teamId'
     | '/coach/team/$teamId/calendario'
@@ -224,6 +234,7 @@ export interface FileRouteTypes {
     | '/atleta/registro'
     | '/atleta/schede'
     | '/atleta/storico'
+    | '/coach/test'
     | '/coach'
     | '/coach/team/$teamId/calendario'
     | '/coach/team/$teamId/periodi'
@@ -244,6 +255,7 @@ export interface FileRouteTypes {
     | '/atleta/registro'
     | '/atleta/schede'
     | '/atleta/storico'
+    | '/coach/test'
     | '/coach/'
     | '/coach/team/$teamId'
     | '/coach/team/$teamId/calendario'
@@ -327,6 +339,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/coach/'
       preLoaderRoute: typeof CoachIndexRouteImport
+      parentRoute: typeof CoachRoute
+    }
+    '/coach/test': {
+      id: '/coach/test'
+      path: '/test'
+      fullPath: '/coach/test'
+      preLoaderRoute: typeof CoachTestRouteImport
       parentRoute: typeof CoachRoute
     }
     '/atleta/storico': {
@@ -440,11 +459,13 @@ const CoachTeamTeamIdRouteWithChildren = CoachTeamTeamIdRoute._addFileChildren(
 )
 
 interface CoachRouteChildren {
+  CoachTestRoute: typeof CoachTestRoute
   CoachIndexRoute: typeof CoachIndexRoute
   CoachTeamTeamIdRoute: typeof CoachTeamTeamIdRouteWithChildren
 }
 
 const CoachRouteChildren: CoachRouteChildren = {
+  CoachTestRoute: CoachTestRoute,
   CoachIndexRoute: CoachIndexRoute,
   CoachTeamTeamIdRoute: CoachTeamTeamIdRouteWithChildren,
 }
