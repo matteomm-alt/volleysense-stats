@@ -862,6 +862,111 @@ export type Database = {
         }
         Relationships: []
       }
+      test_risultati: {
+        Row: {
+          athlete_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          placeholder_id: string | null
+          team_id: string
+          tested_at: string
+          tipo_test_id: string
+          value: number
+        }
+        Insert: {
+          athlete_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          placeholder_id?: string | null
+          team_id: string
+          tested_at?: string
+          tipo_test_id: string
+          value: number
+        }
+        Update: {
+          athlete_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          placeholder_id?: string | null
+          team_id?: string
+          tested_at?: string
+          tipo_test_id?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_risultati_placeholder_id_fkey"
+            columns: ["placeholder_id"]
+            isOneToOne: false
+            referencedRelation: "atleti_placeholder"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "test_risultati_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "test_risultati_tipo_test_id_fkey"
+            columns: ["tipo_test_id"]
+            isOneToOne: false
+            referencedRelation: "tipi_test"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tipi_test: {
+        Row: {
+          category: string | null
+          created_at: string
+          created_by: string | null
+          esercizio_id: string | null
+          higher_is_better: boolean
+          id: string
+          is_public: boolean
+          name: string
+          unit: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          esercizio_id?: string | null
+          higher_is_better?: boolean
+          id?: string
+          is_public?: boolean
+          name: string
+          unit: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          esercizio_id?: string | null
+          higher_is_better?: boolean
+          id?: string
+          is_public?: boolean
+          name?: string
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tipi_test_esercizio_id_fkey"
+            columns: ["esercizio_id"]
+            isOneToOne: false
+            referencedRelation: "esercizi_catalogo"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
