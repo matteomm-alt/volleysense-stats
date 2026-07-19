@@ -6,6 +6,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { Loader2, ChevronLeft, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { findCurrentWeeksForTeam } from "@/lib/currentWeek";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const Route = (createFileRoute as any)("/atleta/schede")({
@@ -30,6 +31,8 @@ type SchedaWithEsercizi = {
   description: string | null;
   periodo_title: string;
   team_name: string;
+  day_label: string | null;
+  scheda_type: string | null;
   esercizi: EsercizioRow[];
 };
 
@@ -50,8 +53,6 @@ function AtletaSchedePage() {
     if (!session?.user) return;
     const fetchSchede = async () => {
       setLoadingData(true);
-      const today = new Date().toISOString().slice(0, 10);
-
       const { data: memberships, error: mErr } = await supabase
         .from("team_members")
         .select("team_id, teams(id, name)")
@@ -64,18 +65,14 @@ function AtletaSchedePage() {
         const team = m.teams as { id: string; name: string } | null;
         if (!team) continue;
 
-        const { data: periodi } = await supabase
-          .from("periodi")
-          .select("id, name")
-          .eq("team_id", team.id)
-          .lte("start_date", today)
-          .gte("end_date", today);
-
-        for (const periodo of periodi ?? []) {
+        const currentWeeks = await findCurrentWeeksForTeam(team.id);
+        for (const cw of currentWeeks) {
           const { data: schedeList } = await supabase
             .from("schede")
-            .select("id, title, description")
-            .eq("periodo_id", periodo.id);
+            .select("id, title, description, day_label, scheda_type")
+            .eq("team_id", team.id)
+            .eq("settimana_id", cw.settimana_id)
+            .or(`athlete_id.eq.${session.user.id},athlete_id.is.null`);
 
           for (const scheda of schedeList ?? []) {
             const { data: righe } = await supabase
@@ -98,8 +95,10 @@ function AtletaSchedePage() {
               id: scheda.id,
               title: scheda.title,
               description: scheda.description,
-              periodo_title: periodo.name,
+              periodo_title: cw.periodo_name,
               team_name: team.name,
+              day_label: (scheda as { day_label: string | null }).day_label ?? null,
+              scheda_type: (scheda as { scheda_type: string | null }).scheda_type ?? null,
               esercizi: (righe ?? []).map((r) => ({
                 id: r.id,
                 order_index: r.order_index,
@@ -165,6 +164,8 @@ function AtletaSchedePage() {
                     <span>{s.team_name}</span>
                     <span>·</span>
                     <span>{s.periodo_title}</span>
+                    {s.day_label && (<><span>·</span><span>{s.day_label}</span></>)}
+                    {s.scheda_type && (<><span>·</span><span className="uppercase tracking-wide">{s.scheda_type}</span></>)}
                   </div>
                   <h2 className="mt-1 text-xl font-semibold tracking-tight">{s.title}</h2>
                   {s.description && (
