@@ -337,13 +337,84 @@ function RegistroPage() {
       }
 
       toast.success("Seduta salvata!");
+
+      // Rileva test collegati agli esercizi svolti
+      const suggestions: PrSuggestion[] = [];
+      try {
+        const validExercises = exercises.filter((ex) => ex.name.trim().length > 0);
+        const esercizioIdSet = new Set<string>();
+        const nameById = new Map<string, string>();
+        validExercises.forEach((ex) => {
+          if (esercizioIds[ex.id]) {
+            esercizioIdSet.add(esercizioIds[ex.id]);
+            nameById.set(esercizioIds[ex.id], ex.name.trim());
+          }
+        });
+        if (esercizioIdSet.size > 0) {
+          const { data: tipi } = await supabase
+            .from("tipi_test")
+            .select("id, name, unit, higher_is_better, esercizio_id")
+            .in("esercizio_id", Array.from(esercizioIdSet));
+          (tipi ?? []).forEach((t) => {
+            if (!t.esercizio_id) return;
+            // massimo carico registrato per quell'esercizio in questa seduta
+            const rowsForEx = validExercises.filter(
+              (ex) => esercizioIds[ex.id] === t.esercizio_id,
+            );
+            const maxLoad = rowsForEx.reduce((m, ex) => {
+              const v = ex.load ? parseFloat(ex.load) : NaN;
+              return !Number.isNaN(v) && v > m ? v : m;
+            }, -Infinity);
+            if (maxLoad === -Infinity) return;
+            suggestions.push({
+              tipoTestId: t.id,
+              tipoName: t.name,
+              unit: t.unit,
+              higherIsBetter: t.higher_is_better,
+              value: maxLoad,
+              exerciseName: nameById.get(t.esercizio_id) ?? "",
+            });
+          });
+        }
+      } catch {
+        // ignoriamo errori: le PR sono opzionali
+      }
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      navigate({ to: "/atleta" as any });
+      const _navigate: any = navigate;
+      if (suggestions.length > 0) {
+        setPrSuggestions(suggestions);
+        setSavedPrs(new Set());
+      } else {
+        _navigate({ to: "/atleta" });
+      }
     } catch (err: unknown) {
       toast.error((err as Error)?.message ?? "Errore nel salvataggio");
     } finally {
       setSaving(false);
     }
+  };
+
+  const markPr = async (s: PrSuggestion) => {
+    if (!session?.user || !selectedTeamId) return;
+    setSavingPrId(s.tipoTestId);
+    const { error } = await supabase.from("test_risultati").insert({
+      team_id: selectedTeamId,
+      athlete_id: session.user.id,
+      placeholder_id: null,
+      tipo_test_id: s.tipoTestId,
+      value: s.value,
+      tested_at: sessionDate,
+      notes: `Registrato da seduta — ${s.exerciseName}`,
+      created_by: session.user.id,
+    });
+    setSavingPrId(null);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(`Nuovo ${s.tipoName} registrato`);
+    setSavedPrs((prev) => new Set(prev).add(s.tipoTestId));
   };
 
   // ─── Loading ────────────────────────────────────────────────────────────────
