@@ -267,10 +267,10 @@ function RegistroPage() {
 
       if (sessErr || !sess) throw sessErr ?? new Error("Errore sessione");
 
+      // Lookup + insert batch nel catalogo, evitando N+1
+      const esercizioIds: Record<string, string> = {};
       // 2. Inserisci set_logs per ogni esercizio
       if (exercises.length) {
-        // Lookup + insert batch nel catalogo, evitando N+1
-        const esercizioIds: Record<string, string> = {};
         const validExercises = exercises.filter((ex) => ex.name.trim().length > 0);
         const uniqueNames = Array.from(
           new Set(validExercises.map((ex) => ex.name.trim()))
