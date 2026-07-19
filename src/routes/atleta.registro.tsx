@@ -155,6 +155,7 @@ function RegistroPage() {
         .select("id, title, athlete_id")
         .eq("team_id", selectedTeamId)
         .in("settimana_id", settIds)
+        .is("placeholder_id", null)
         .or(`athlete_id.eq.${session.user.id},athlete_id.is.null`)
         .limit(1);
 
