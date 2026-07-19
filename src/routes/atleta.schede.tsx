@@ -72,6 +72,7 @@ function AtletaSchedePage() {
             .select("id, title, description, day_label, scheda_type")
             .eq("team_id", team.id)
             .eq("settimana_id", cw.settimana_id)
+            .is("placeholder_id", null)
             .or(`athlete_id.eq.${session.user.id},athlete_id.is.null`);
 
           for (const scheda of schedeList ?? []) {
