@@ -1097,7 +1097,7 @@ function AddSchedaInline({
   isTemplate: boolean;
   roster: RosterMember[];
   onCancel: () => void;
-  onCreate: (p: { title: string; day_label: string; scheda_type: string; athlete_id: string | null }) => void;
+  onCreate: (p: { title: string; day_label: string; scheda_type: string; athlete_id: string | null; placeholder_id: string | null }) => void;
   nextDayLabel: string;
 }) {
   const [title, setTitle] = useState("");
