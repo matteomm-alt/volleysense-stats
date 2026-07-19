@@ -45,6 +45,7 @@ type SchedaRow = {
   day_order: number;
   scheda_type: string | null;
   athlete_id: string | null;
+  placeholder_id: string | null;
 };
 
 type SettimanaRow = {
@@ -63,7 +64,12 @@ type PeriodoRow = {
   settimane: SettimanaRow[];
 };
 
-type RosterMember = { athlete_id: string; full_name: string };
+type RosterMember = {
+  key: string; // "athlete:<uuid>" or "placeholder:<uuid>"
+  kind: "athlete" | "placeholder";
+  id: string;
+  full_name: string;
+};
 
 const SCHEDA_TYPES = [
   "Lower Body",
@@ -122,24 +128,43 @@ function PeriodiPage() {
         supabase.from("teams").select("name").eq("id", teamId).maybeSingle(),
         supabase.from("periodi").select("id, name, start_date, end_date, order_index").eq("team_id", teamId).order("order_index", { ascending: true }),
         supabase.from("settimane").select("id, periodo_id, week_number, is_template, load_increment_pct").eq("team_id", teamId),
-        supabase.from("schede").select("id, title, day_label, day_order, scheda_type, athlete_id, settimana_id").eq("team_id", teamId),
+        supabase.from("schede").select("id, title, day_label, day_order, scheda_type, athlete_id, placeholder_id, settimana_id").eq("team_id", teamId),
         supabase.from("team_members").select("athlete_id").eq("team_id", teamId),
       ]);
 
       setTeamName(t?.name ?? "");
 
-      // Roster: fetch profiles separately
+      // Roster unificato: team_members (con profile) + atleti_placeholder non collegati
       const athleteIds = (members ?? []).map((m) => m.athlete_id);
-      let rosterList: RosterMember[] = [];
+      const rosterList: RosterMember[] = [];
       if (athleteIds.length > 0) {
         const { data: profs } = await supabase
           .from("profiles")
           .select("id, full_name")
           .in("id", athleteIds);
-        rosterList = (profs ?? [])
-          .map((p) => ({ athlete_id: p.id, full_name: p.full_name ?? "Atleta" }))
-          .sort((a, b) => a.full_name.localeCompare(b.full_name, "it"));
+        (profs ?? []).forEach((p) =>
+          rosterList.push({
+            key: `athlete:${p.id}`,
+            kind: "athlete",
+            id: p.id,
+            full_name: p.full_name ?? "Atleta",
+          }),
+        );
       }
+      const { data: phs } = await supabase
+        .from("atleti_placeholder")
+        .select("id, full_name")
+        .eq("team_id", teamId)
+        .is("linked_athlete_id", null);
+      (phs ?? []).forEach((p) =>
+        rosterList.push({
+          key: `placeholder:${p.id}`,
+          kind: "placeholder",
+          id: p.id,
+          full_name: p.full_name ?? "Atleta",
+        }),
+      );
+      rosterList.sort((a, b) => a.full_name.localeCompare(b.full_name, "it"));
       setRoster(rosterList);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -162,6 +187,7 @@ function PeriodiPage() {
           day_order: s.day_order ?? 0,
           scheda_type: s.scheda_type,
           athlete_id: s.athlete_id,
+          placeholder_id: s.placeholder_id ?? null,
         });
       });
 
@@ -291,6 +317,7 @@ function PeriodiPage() {
       is_template: settimana.is_template,
       order_index: day_order,
       athlete_id: settimana.is_template ? null : payload.athlete_id,
+      placeholder_id: settimana.is_template ? null : payload.placeholder_id,
       created_by: session?.user?.id ?? null,
     });
     if (error) return toast.error(error.message);
@@ -353,26 +380,33 @@ function PeriodiPage() {
       // Refetch target schede (source of truth) to detect what already exists
       const { data: existing, error: eEx } = await supabase
         .from("schede")
-        .select("id, day_order, athlete_id")
+        .select("id, day_order, athlete_id, placeholder_id")
         .eq("settimana_id", target.id);
       if (eEx) throw eEx;
       const existingKeys = new Set(
-        (existing ?? []).map((s) => `${s.day_order}|${s.athlete_id ?? ""}`),
+        (existing ?? []).map((s) => {
+          const who = s.athlete_id
+            ? `athlete:${s.athlete_id}`
+            : s.placeholder_id
+              ? `placeholder:${s.placeholder_id}`
+              : "";
+          return `${s.day_order}|${who}`;
+        }),
       );
 
-      // Build list of (templateSch, athlete) still to create
+      // Build list of (templateSch, roster entry) still to create
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const toInsert: { tpl: any; athlete_id: string }[] = [];
+      const toInsert: { tpl: any; entry: RosterMember }[] = [];
       for (const tpl of templateSchede) {
         for (const a of roster) {
-          const key = `${tpl.day_order}|${a.athlete_id}`;
+          const key = `${tpl.day_order}|${a.key}`;
           if (existingKeys.has(key)) continue;
-          toInsert.push({ tpl, athlete_id: a.athlete_id });
+          toInsert.push({ tpl, entry: a });
         }
       }
       if (toInsert.length === 0) continue;
 
-      const rows = toInsert.map(({ tpl, athlete_id }) => ({
+      const rows = toInsert.map(({ tpl, entry }) => ({
         team_id: teamId,
         settimana_id: target.id,
         title: tpl.title,
@@ -381,29 +415,35 @@ function PeriodiPage() {
         scheda_type: tpl.scheda_type,
         is_template: false,
         order_index: tpl.day_order,
-        athlete_id,
+        athlete_id: entry.kind === "athlete" ? entry.id : null,
+        placeholder_id: entry.kind === "placeholder" ? entry.id : null,
         created_by: session?.user?.id ?? null,
       }));
 
       const { data: inserted, error: eIns } = await supabase
         .from("schede")
         .insert(rows)
-        .select("id, day_order, athlete_id");
+        .select("id, day_order, athlete_id, placeholder_id");
       if (eIns) throw eIns;
       createdSchede += inserted?.length ?? 0;
 
-      // Map back inserted row → template scheda_id (via day_order + athlete)
+      // Map back inserted row → template scheda_id (via day_order + roster key)
       const insertedByKey = new Map<string, string>();
-      (inserted ?? []).forEach((r) =>
-        insertedByKey.set(`${r.day_order}|${r.athlete_id ?? ""}`, r.id),
-      );
+      (inserted ?? []).forEach((r) => {
+        const who = r.athlete_id
+          ? `athlete:${r.athlete_id}`
+          : r.placeholder_id
+            ? `placeholder:${r.placeholder_id}`
+            : "";
+        insertedByKey.set(`${r.day_order}|${who}`, r.id);
+      });
       const tplByOrder = new Map<number, string>();
       templateSchede.forEach((t) => tplByOrder.set(t.day_order, t.id));
 
       const factor = 1 + Number(target.load_increment_pct ?? 0) / 100;
       const eserciziRows = toInsert
-        .flatMap(({ tpl, athlete_id }) => {
-          const newSchedaId = insertedByKey.get(`${tpl.day_order}|${athlete_id}`);
+        .flatMap(({ tpl, entry }) => {
+          const newSchedaId = insertedByKey.get(`${tpl.day_order}|${entry.key}`);
           if (!newSchedaId) return [];
           const tplId = tplByOrder.get(tpl.day_order);
           if (!tplId) return [];
