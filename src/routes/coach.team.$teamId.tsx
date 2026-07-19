@@ -463,6 +463,43 @@ function MemberRow({
   );
 }
 
+function PlaceholderRow({
+  placeholder,
+  onRemove,
+}: {
+  placeholder: Placeholder;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-5 py-3">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="grid h-9 w-9 place-items-center rounded-full bg-secondary text-muted-foreground">
+          <Clock className="h-4 w-4" />
+        </div>
+        <div className="min-w-0">
+          <div className="font-medium truncate">{placeholder.full_name}</div>
+          {placeholder.email && (
+            <div className="text-xs text-muted-foreground truncate">{placeholder.email}</div>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <Badge className="bg-orange-500/15 text-orange-600 hover:bg-orange-500/15 border-transparent">
+          <Clock className="h-3 w-3 mr-1" /> In attesa
+        </Badge>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onRemove}
+          className="text-muted-foreground hover:text-destructive"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function EmptyRoster({ code, onInvite }: { code: string; onInvite: () => void }) {
   return (
     <div className="mt-4 rounded-lg border border-dashed bg-muted/30 p-12 text-center">
