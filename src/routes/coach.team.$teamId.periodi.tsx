@@ -15,6 +15,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   Loader2,
   ChevronLeft,
   Plus,
@@ -24,6 +32,9 @@ import {
   CalendarRange,
   Layers,
   ChevronRight,
+  RefreshCw,
+  Users,
+  User,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -52,6 +63,8 @@ type PeriodoRow = {
   settimane: SettimanaRow[];
 };
 
+type RosterMember = { athlete_id: string; full_name: string };
+
 const SCHEDA_TYPES = [
   "Lower Body",
   "Upper Body",
@@ -62,6 +75,7 @@ const SCHEDA_TYPES = [
 ];
 
 const DAY_LABELS = ["A", "B", "C", "D", "E"];
+const TEAM_VALUE = "__team__";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const Route = (createFileRoute as any)("/coach/team/$teamId/periodi")({
@@ -75,6 +89,7 @@ function PeriodiPage() {
 
   const [teamName, setTeamName] = useState<string>("");
   const [periodi, setPeriodi] = useState<PeriodoRow[]>([]);
+  const [roster, setRoster] = useState<RosterMember[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
   const [newPeriodoOpen, setNewPeriodoOpen] = useState(false);
@@ -86,6 +101,8 @@ function PeriodiPage() {
 
   const [newSchedaForSettimana, setNewSchedaForSettimana] = useState<string | null>(null);
   const [generatingForPeriodo, setGeneratingForPeriodo] = useState<string | null>(null);
+  const [regenForPeriodo, setRegenForPeriodo] = useState<PeriodoRow | null>(null);
+  const [regenConfirmText, setRegenConfirmText] = useState("");
   const [duplicateForScheda, setDuplicateForScheda] = useState<{ scheda: SchedaRow; settimane: SettimanaRow[] } | null>(null);
 
   useEffect(() => {
@@ -101,14 +118,29 @@ function PeriodiPage() {
   const fetchData = useCallback(async () => {
     setLoadingData(true);
     try {
-      const [{ data: t }, { data: per }, { data: sett }, { data: sch }] = await Promise.all([
+      const [{ data: t }, { data: per }, { data: sett }, { data: sch }, { data: members }] = await Promise.all([
         supabase.from("teams").select("name").eq("id", teamId).maybeSingle(),
         supabase.from("periodi").select("id, name, start_date, end_date, order_index").eq("team_id", teamId).order("order_index", { ascending: true }),
         supabase.from("settimane").select("id, periodo_id, week_number, is_template, load_increment_pct").eq("team_id", teamId),
         supabase.from("schede").select("id, title, day_label, day_order, scheda_type, athlete_id, settimana_id").eq("team_id", teamId),
+        supabase.from("team_members").select("athlete_id").eq("team_id", teamId),
       ]);
 
       setTeamName(t?.name ?? "");
+
+      // Roster: fetch profiles separately
+      const athleteIds = (members ?? []).map((m) => m.athlete_id);
+      let rosterList: RosterMember[] = [];
+      if (athleteIds.length > 0) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", athleteIds);
+        rosterList = (profs ?? [])
+          .map((p) => ({ athlete_id: p.id, full_name: p.full_name ?? "Atleta" }))
+          .sort((a, b) => a.full_name.localeCompare(b.full_name, "it"));
+      }
+      setRoster(rosterList);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const settByPeriodo = new Map<string, any[]>();
@@ -118,7 +150,6 @@ function PeriodiPage() {
         settByPeriodo.get(s.periodo_id)!.push(s);
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const schedeBySett = new Map<string, SchedaRow[]>();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (sch ?? []).forEach((s: any) => {
@@ -239,9 +270,17 @@ function PeriodiPage() {
   // ── Crea scheda / giorno ────────────────────────────────────────────────
   const handleCreateScheda = async (
     settimana: SettimanaRow,
-    payload: { title: string; day_label: string; scheda_type: string },
+    payload: { title: string; day_label: string; scheda_type: string; athlete_id: string | null },
   ) => {
-    const day_order = settimana.schede.length;
+    // day_order: reuse existing day_order for same day_label if present, else next
+    const existingSameLabel = settimana.schede.find(
+      (s) => (s.day_label ?? "") === (payload.day_label ?? "") && payload.day_label,
+    );
+    const day_order = existingSameLabel
+      ? existingSameLabel.day_order
+      : settimana.schede.length > 0
+        ? Math.max(...settimana.schede.map((s) => s.day_order)) + 1
+        : 0;
     const { error } = await supabase.from("schede").insert({
       team_id: teamId,
       settimana_id: settimana.id,
@@ -251,6 +290,7 @@ function PeriodiPage() {
       scheda_type: payload.scheda_type || null,
       is_template: settimana.is_template,
       order_index: day_order,
+      athlete_id: settimana.is_template ? null : payload.athlete_id,
       created_by: session?.user?.id ?? null,
     });
     if (error) return toast.error(error.message);
@@ -267,104 +307,190 @@ function PeriodiPage() {
     fetchData();
   };
 
-  // ── Genera settimane da template ────────────────────────────────────────
-  const handleGenerateWeeks = async (periodo: PeriodoRow) => {
+  // ── Core: incrementally clone template into weeks per athlete ────────────
+  const runIncrementalGenerate = async (periodo: PeriodoRow) => {
+    if (roster.length === 0) {
+      toast.error("Aggiungi atleti alla squadra prima di generare le settimane");
+      return;
+    }
     const template = periodo.settimane.find((s) => s.is_template);
-    if (!template) return toast.error("Manca la settimana tipo");
+    if (!template) {
+      toast.error("Manca la settimana tipo");
+      return;
+    }
     const targets = periodo.settimane.filter((s) => !s.is_template);
-    if (targets.length === 0) return toast.error("Aggiungi settimane al periodo");
-    const hasSchede = targets.some((s) => s.schede.length > 0);
-    if (hasSchede && !confirm("Alcune settimane hanno già schede. Continuando verranno sostituite. Procedere?")) return;
+    if (targets.length === 0) {
+      toast.error("Aggiungi settimane al periodo");
+      return;
+    }
 
+    // Fetch template schede + esercizi
+    const { data: templateSchede, error: e1 } = await supabase
+      .from("schede")
+      .select("id, title, day_label, day_order, scheda_type")
+      .eq("settimana_id", template.id)
+      .order("day_order");
+    if (e1) throw e1;
+    if (!templateSchede || templateSchede.length === 0) {
+      toast.error("La settimana tipo è vuota");
+      return;
+    }
+    const tsIds = templateSchede.map((s) => s.id);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let templateEsercizi: any[] = [];
+    if (tsIds.length > 0) {
+      const { data: es, error: eE } = await supabase
+        .from("scheda_esercizi")
+        .select("scheda_id, esercizio_id, order_index, sets, reps, load_value, load_unit, rest_seconds, tempo, rpe_target, notes")
+        .in("scheda_id", tsIds);
+      if (eE) throw eE;
+      templateEsercizi = es ?? [];
+    }
+
+    let createdSchede = 0;
+
+    for (const target of targets) {
+      // Refetch target schede (source of truth) to detect what already exists
+      const { data: existing, error: eEx } = await supabase
+        .from("schede")
+        .select("id, day_order, athlete_id")
+        .eq("settimana_id", target.id);
+      if (eEx) throw eEx;
+      const existingKeys = new Set(
+        (existing ?? []).map((s) => `${s.day_order}|${s.athlete_id ?? ""}`),
+      );
+
+      // Build list of (templateSch, athlete) still to create
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const toInsert: { tpl: any; athlete_id: string }[] = [];
+      for (const tpl of templateSchede) {
+        for (const a of roster) {
+          const key = `${tpl.day_order}|${a.athlete_id}`;
+          if (existingKeys.has(key)) continue;
+          toInsert.push({ tpl, athlete_id: a.athlete_id });
+        }
+      }
+      if (toInsert.length === 0) continue;
+
+      const rows = toInsert.map(({ tpl, athlete_id }) => ({
+        team_id: teamId,
+        settimana_id: target.id,
+        title: tpl.title,
+        day_label: tpl.day_label,
+        day_order: tpl.day_order,
+        scheda_type: tpl.scheda_type,
+        is_template: false,
+        order_index: tpl.day_order,
+        athlete_id,
+        created_by: session?.user?.id ?? null,
+      }));
+
+      const { data: inserted, error: eIns } = await supabase
+        .from("schede")
+        .insert(rows)
+        .select("id, day_order, athlete_id");
+      if (eIns) throw eIns;
+      createdSchede += inserted?.length ?? 0;
+
+      // Map back inserted row → template scheda_id (via day_order + athlete)
+      const insertedByKey = new Map<string, string>();
+      (inserted ?? []).forEach((r) =>
+        insertedByKey.set(`${r.day_order}|${r.athlete_id ?? ""}`, r.id),
+      );
+      const tplByOrder = new Map<number, string>();
+      templateSchede.forEach((t) => tplByOrder.set(t.day_order, t.id));
+
+      const factor = 1 + Number(target.load_increment_pct ?? 0) / 100;
+      const eserciziRows = toInsert
+        .flatMap(({ tpl, athlete_id }) => {
+          const newSchedaId = insertedByKey.get(`${tpl.day_order}|${athlete_id}`);
+          if (!newSchedaId) return [];
+          const tplId = tplByOrder.get(tpl.day_order);
+          if (!tplId) return [];
+          return templateEsercizi
+            .filter((e) => e.scheda_id === tplId)
+            .map((e) => {
+              const load_value =
+                e.load_value != null && (e.load_unit === "kg" || e.load_unit === "lb")
+                  ? Math.round(Number(e.load_value) * factor * 100) / 100
+                  : e.load_value;
+              return {
+                scheda_id: newSchedaId,
+                esercizio_id: e.esercizio_id,
+                order_index: e.order_index,
+                sets: e.sets,
+                reps: e.reps,
+                load_value,
+                load_unit: e.load_unit,
+                rest_seconds: e.rest_seconds,
+                tempo: e.tempo,
+                rpe_target: e.rpe_target,
+                notes: e.notes,
+              };
+            });
+        });
+
+      if (eserciziRows.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error: eE2 } = await supabase.from("scheda_esercizi").insert(eserciziRows as any[]);
+        if (eE2) throw eE2;
+      }
+    }
+
+    return createdSchede;
+  };
+
+  // ── Genera/aggiorna settimane (incrementale, non distruttivo) ─────────────
+  const handleGenerateWeeks = async (periodo: PeriodoRow) => {
     setGeneratingForPeriodo(periodo.id);
     try {
-      // template exercises
-      const { data: templateSchede, error: e1 } = await supabase
-        .from("schede")
-        .select("id, title, day_label, day_order, scheda_type")
-        .eq("settimana_id", template.id)
-        .order("day_order");
-      if (e1) throw e1;
-      const tsIds = (templateSchede ?? []).map((s) => s.id);
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let templateEsercizi: any[] = [];
-      if (tsIds.length > 0) {
-        const { data: es, error: eE } = await supabase
-          .from("scheda_esercizi")
-          .select("scheda_id, esercizio_id, order_index, sets, reps, load_value, load_unit, rest_seconds, tempo, rpe_target, notes")
-          .in("scheda_id", tsIds);
-        if (eE) throw eE;
-        templateEsercizi = es ?? [];
+      const created = await runIncrementalGenerate(periodo);
+      if (created === undefined) return; // aborted with own toast
+      if (created === 0) {
+        toast.success("Tutte le schede risultano già generate");
+      } else {
+        toast.success(`${created} schede create/aggiornate`);
       }
-
-      for (const target of targets) {
-        // wipe existing
-        if (target.schede.length > 0) {
-          const oldIds = target.schede.map((s) => s.id);
-          const { error: eDel } = await supabase.from("schede").delete().in("id", oldIds);
-          if (eDel) throw eDel;
-        }
-        if (!templateSchede || templateSchede.length === 0) continue;
-
-        // insert cloned schede
-        const cloneRows = templateSchede.map((s) => ({
-          team_id: teamId,
-          settimana_id: target.id,
-          title: s.title,
-          day_label: s.day_label,
-          day_order: s.day_order,
-          scheda_type: s.scheda_type,
-          is_template: false,
-          order_index: s.day_order,
-          created_by: session?.user?.id ?? null,
-        }));
-        const { data: inserted, error: eIns } = await supabase.from("schede").insert(cloneRows).select("id, day_order");
-        if (eIns) throw eIns;
-
-        // map old→new by day_order
-        const orderToNew = new Map<number, string>();
-        (inserted ?? []).forEach((r) => orderToNew.set(r.day_order, r.id));
-        const oldIdToOrder = new Map<string, number>();
-        templateSchede.forEach((s) => oldIdToOrder.set(s.id, s.day_order));
-
-        const factor = 1 + Number(target.load_increment_pct ?? 0) / 100;
-        const eserciziRows = templateEsercizi
-          .map((e) => {
-            const order = oldIdToOrder.get(e.scheda_id);
-            if (order === undefined) return null;
-            const newSchedaId = orderToNew.get(order);
-            if (!newSchedaId) return null;
-            const load_value =
-              e.load_value != null && (e.load_unit === "kg" || e.load_unit === "lb")
-                ? Math.round(Number(e.load_value) * factor * 100) / 100
-                : e.load_value;
-            return {
-              scheda_id: newSchedaId,
-              esercizio_id: e.esercizio_id,
-              order_index: e.order_index,
-              sets: e.sets,
-              reps: e.reps,
-              load_value,
-              load_unit: e.load_unit,
-              rest_seconds: e.rest_seconds,
-              tempo: e.tempo,
-              rpe_target: e.rpe_target,
-              notes: e.notes,
-            };
-          })
-          .filter(Boolean);
-        if (eserciziRows.length > 0) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { error: eE2 } = await supabase.from("scheda_esercizi").insert(eserciziRows as any[]);
-          if (eE2) throw eE2;
-        }
-      }
-
-      toast.success("Settimane generate");
       fetchData();
     } catch (e: unknown) {
       toast.error((e as Error)?.message ?? "Errore generazione");
+    } finally {
+      setGeneratingForPeriodo(null);
+    }
+  };
+
+  // ── Rigenera da zero: wipe + regenerate ──────────────────────────────────
+  const handleRegenerateFromScratch = async () => {
+    if (!regenForPeriodo) return;
+    if (regenConfirmText.trim().toUpperCase() !== "TEAM") return;
+    const periodo = regenForPeriodo;
+    setGeneratingForPeriodo(periodo.id);
+    try {
+      const targetIds = periodo.settimane.filter((s) => !s.is_template).map((s) => s.id);
+      if (targetIds.length > 0) {
+        const { error: eDel } = await supabase
+          .from("schede")
+          .delete()
+          .in("settimana_id", targetIds)
+          .eq("is_template", false);
+        if (eDel) throw eDel;
+      }
+      // Rebuild an in-memory periodo with cleared target schede
+      const cleaned: PeriodoRow = {
+        ...periodo,
+        settimane: periodo.settimane.map((s) =>
+          s.is_template ? s : { ...s, schede: [] },
+        ),
+      };
+      const created = await runIncrementalGenerate(cleaned);
+      if (created !== undefined) {
+        toast.success(`Rigenerazione completata (${created} schede)`);
+      }
+      setRegenForPeriodo(null);
+      setRegenConfirmText("");
+      fetchData();
+    } catch (e: unknown) {
+      toast.error((e as Error)?.message ?? "Errore rigenerazione");
     } finally {
       setGeneratingForPeriodo(null);
     }
@@ -377,14 +503,16 @@ function PeriodiPage() {
     newDayLabel: string,
   ) => {
     try {
-      // exercises of source
       const { data: es, error: eE } = await supabase
         .from("scheda_esercizi")
         .select("esercizio_id, order_index, sets, reps, load_value, load_unit, rest_seconds, tempo, rpe_target, notes")
         .eq("scheda_id", scheda.id);
       if (eE) throw eE;
 
-      const day_order = targetSettimana.schede.length;
+      const day_order =
+        targetSettimana.schede.length > 0
+          ? Math.max(...targetSettimana.schede.map((s) => s.day_order)) + 1
+          : 0;
       const { data: inserted, error: eIns } = await supabase
         .from("schede")
         .insert({
@@ -396,6 +524,7 @@ function PeriodiPage() {
           scheda_type: scheda.scheda_type,
           is_template: targetSettimana.is_template,
           order_index: day_order,
+          athlete_id: targetSettimana.is_template ? null : scheda.athlete_id,
           created_by: session?.user?.id ?? null,
         })
         .select("id")
@@ -429,7 +558,6 @@ function PeriodiPage() {
     <div className="min-h-screen flex flex-col bg-background">
       <AppHeader name={profile.full_name ?? "Coach"} role={role} onSignOut={signOut} maxWidth="max-w-5xl" />
       <main className="flex-1 container mx-auto max-w-5xl px-4 py-8 space-y-6">
-        {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Link to="/coach/team/$teamId" params={{ teamId }} className="hover:text-foreground inline-flex items-center gap-1">
             <ChevronLeft className="h-3.5 w-3.5" /> {teamName || "Squadra"}
@@ -443,7 +571,7 @@ function PeriodiPage() {
             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Programmazione</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight">Periodi & Schede</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Costruisci una settimana tipo, poi generala su N settimane con progressione carico.
+              Costruisci una settimana tipo, poi generala per ogni atleta della squadra.
             </p>
           </div>
           <Button onClick={() => setNewPeriodoOpen(true)}>
@@ -451,7 +579,12 @@ function PeriodiPage() {
           </Button>
         </div>
 
-        {/* Form nuovo periodo (inline) */}
+        {roster.length === 0 && (
+          <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 px-4 py-3 text-sm text-orange-600">
+            La squadra non ha ancora atleti. Aggiungi atleti al roster prima di generare le settimane.
+          </div>
+        )}
+
         {newPeriodoOpen && (
           <div className="rounded-lg border bg-card p-5 space-y-4">
             <div className="flex items-center gap-2">
@@ -492,7 +625,6 @@ function PeriodiPage() {
           </div>
         )}
 
-        {/* Empty */}
         {periodi.length === 0 && !newPeriodoOpen && (
           <div className="rounded-lg border border-dashed bg-muted/30 p-12 text-center">
             <div className="mx-auto h-12 w-12 grid place-items-center rounded-full bg-secondary">
@@ -508,16 +640,17 @@ function PeriodiPage() {
           </div>
         )}
 
-        {/* Periodi */}
         <div className="space-y-6">
           {periodi.map((p) => (
             <PeriodoCard
               key={p.id}
               periodo={p}
               teamId={teamId}
+              roster={roster}
               generating={generatingForPeriodo === p.id}
               onDelete={() => handleDeletePeriodo(p.id)}
               onGenerate={() => handleGenerateWeeks(p)}
+              onRegenerate={() => { setRegenForPeriodo(p); setRegenConfirmText(""); }}
               onOpenAddScheda={(sid) => setNewSchedaForSettimana(sid)}
               openAddSchedaFor={newSchedaForSettimana}
               onCancelAddScheda={() => setNewSchedaForSettimana(null)}
@@ -529,7 +662,6 @@ function PeriodiPage() {
           ))}
         </div>
 
-        {/* Duplicate scheda inline form */}
         {duplicateForScheda && (
           <DuplicateSchedaForm
             source={duplicateForScheda.scheda}
@@ -538,6 +670,44 @@ function PeriodiPage() {
             onConfirm={(target, label) => handleDuplicateScheda(duplicateForScheda.scheda, target, label)}
           />
         )}
+
+        <Dialog
+          open={!!regenForPeriodo}
+          onOpenChange={(o) => { if (!o) { setRegenForPeriodo(null); setRegenConfirmText(""); } }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="text-destructive">Rigenera da zero</DialogTitle>
+              <DialogDescription>
+                Questa azione elimina <strong>tutte le schede non-template</strong> del periodo
+                “{regenForPeriodo?.name}” (tutte le settimane e tutti gli atleti) e le ricrea dalla
+                settimana tipo. Le personalizzazioni fatte sulle settimane andranno perse.
+                <br /><br />
+                Per confermare, scrivi <span className="font-mono font-semibold">TEAM</span> qui sotto.
+              </DialogDescription>
+            </DialogHeader>
+            <Input
+              value={regenConfirmText}
+              onChange={(e) => setRegenConfirmText(e.target.value)}
+              placeholder="TEAM"
+              className="font-mono"
+              autoFocus
+            />
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => { setRegenForPeriodo(null); setRegenConfirmText(""); }}>
+                Annulla
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={regenConfirmText.trim().toUpperCase() !== "TEAM" || generatingForPeriodo === regenForPeriodo?.id}
+                onClick={handleRegenerateFromScratch}
+              >
+                {generatingForPeriodo === regenForPeriodo?.id && <Loader2 className="h-4 w-4 animate-spin" />}
+                <RefreshCw className="h-4 w-4" /> Rigenera da zero
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
@@ -548,9 +718,11 @@ function PeriodiPage() {
 function PeriodoCard({
   periodo,
   teamId,
+  roster,
   generating,
   onDelete,
   onGenerate,
+  onRegenerate,
   onOpenAddScheda,
   openAddSchedaFor,
   onCancelAddScheda,
@@ -561,13 +733,15 @@ function PeriodoCard({
 }: {
   periodo: PeriodoRow;
   teamId: string;
+  roster: RosterMember[];
   generating: boolean;
   onDelete: () => void;
   onGenerate: () => void;
+  onRegenerate: () => void;
   onOpenAddScheda: (settimanaId: string) => void;
   openAddSchedaFor: string | null;
   onCancelAddScheda: () => void;
-  onCreateScheda: (s: SettimanaRow, p: { title: string; day_label: string; scheda_type: string }) => void;
+  onCreateScheda: (s: SettimanaRow, p: { title: string; day_label: string; scheda_type: string; athlete_id: string | null }) => void;
   onDeleteScheda: (id: string) => void;
   onDuplicateScheda: (s: SchedaRow) => void;
   onUpdateLoad: (settimanaId: string, pct: number) => void;
@@ -579,13 +753,23 @@ function PeriodoCard({
         <div className="min-w-0">
           <h2 className="font-semibold truncate">{periodo.name}</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {periodo.start_date} → {periodo.end_date} · <span className="font-mono">{nWeeks} sett</span>
+            {periodo.start_date} → {periodo.end_date} · <span className="font-mono">{nWeeks} sett</span> · <span className="font-mono">{roster.length} atleti</span>
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Button size="sm" variant="outline" onClick={onGenerate} disabled={generating}>
             {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-            Genera settimane
+            Genera/aggiorna settimane
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onRegenerate}
+            disabled={generating}
+            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            title="Rigenera da zero (distruttivo)"
+          >
+            <RefreshCw className="h-4 w-4" />
           </Button>
           <Button size="sm" variant="ghost" onClick={onDelete}>
             <Trash2 className="h-4 w-4" />
@@ -599,6 +783,7 @@ function PeriodoCard({
             key={s.id}
             settimana={s}
             teamId={teamId}
+            roster={roster}
             addingScheda={openAddSchedaFor === s.id}
             onOpenAdd={() => onOpenAddScheda(s.id)}
             onCancelAdd={onCancelAddScheda}
@@ -616,6 +801,7 @@ function PeriodoCard({
 function SettimanaRowView({
   settimana,
   teamId,
+  roster,
   addingScheda,
   onOpenAdd,
   onCancelAdd,
@@ -626,16 +812,46 @@ function SettimanaRowView({
 }: {
   settimana: SettimanaRow;
   teamId: string;
+  roster: RosterMember[];
   addingScheda: boolean;
   onOpenAdd: () => void;
   onCancelAdd: () => void;
-  onCreate: (p: { title: string; day_label: string; scheda_type: string }) => void;
+  onCreate: (p: { title: string; day_label: string; scheda_type: string; athlete_id: string | null }) => void;
   onDeleteScheda: (id: string) => void;
   onDuplicateScheda: (s: SchedaRow) => void;
   onUpdateLoad: (pct: number) => void;
 }) {
   const [localPct, setLocalPct] = useState(settimana.load_increment_pct);
   useEffect(() => setLocalPct(settimana.load_increment_pct), [settimana.load_increment_pct]);
+
+  // Group schede by day_order for non-template weeks
+  const groups = (() => {
+    if (settimana.is_template) return null;
+    const map = new Map<number, { day_label: string | null; scheda_type: string | null; title: string; schede: SchedaRow[] }>();
+    for (const sc of settimana.schede) {
+      if (!map.has(sc.day_order)) {
+        map.set(sc.day_order, {
+          day_label: sc.day_label,
+          scheda_type: sc.scheda_type,
+          title: sc.title,
+          schede: [],
+        });
+      }
+      map.get(sc.day_order)!.schede.push(sc);
+    }
+    return Array.from(map.entries()).sort((a, b) => a[0] - b[0]);
+  })();
+
+  const rosterName = (id: string | null) => {
+    if (!id) return "Tutta la squadra";
+    return roster.find((r) => r.athlete_id === id)?.full_name ?? "Atleta";
+  };
+
+  const nextDayOrder =
+    settimana.schede.length > 0
+      ? Math.max(...settimana.schede.map((s) => s.day_order)) + 1
+      : 0;
+  const nextDayLabel = DAY_LABELS[nextDayOrder] ?? "";
 
   return (
     <div className="p-4 sm:px-5">
@@ -646,7 +862,11 @@ function SettimanaRowView({
           ) : (
             <Badge variant="outline" className="font-mono text-[10px]">SETT. {settimana.week_number}</Badge>
           )}
-          <span className="text-xs text-muted-foreground">{settimana.schede.length} giorni</span>
+          <span className="text-xs text-muted-foreground">
+            {settimana.is_template
+              ? `${settimana.schede.length} giorni`
+              : `${groups?.length ?? 0} giorni · ${settimana.schede.length} schede`}
+          </span>
         </div>
         {!settimana.is_template && (
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -663,20 +883,82 @@ function SettimanaRowView({
         )}
       </div>
 
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        {settimana.schede.map((sc) => (
-          <SchedaChip
-            key={sc.id}
-            scheda={sc}
-            teamId={teamId}
-            onDelete={() => onDeleteScheda(sc.id)}
-            onDuplicate={() => onDuplicateScheda(sc)}
-          />
-        ))}
-      </div>
+      {settimana.is_template ? (
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {settimana.schede.map((sc) => (
+            <SchedaChip
+              key={sc.id}
+              scheda={sc}
+              teamId={teamId}
+              onDelete={() => onDeleteScheda(sc.id)}
+              onDuplicate={() => onDuplicateScheda(sc)}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="mt-3 space-y-3">
+          {groups && groups.length === 0 && (
+            <p className="text-xs text-muted-foreground italic">Nessuna scheda in questa settimana.</p>
+          )}
+          {groups?.map(([dayOrder, g]) => (
+            <div key={dayOrder} className="rounded-md border bg-background/50 overflow-hidden">
+              <div className="flex items-center gap-2 px-3 py-2 bg-muted/40 border-b">
+                {g.day_label && (
+                  <span className="font-mono text-[11px] font-semibold bg-secondary rounded px-1.5 py-0.5">
+                    {g.day_label}
+                  </span>
+                )}
+                <div className="text-sm font-medium">{g.title}</div>
+                {g.scheda_type && (
+                  <span className="text-[11px] text-muted-foreground">· {g.scheda_type}</span>
+                )}
+                <span className="ml-auto text-[11px] font-mono text-muted-foreground">
+                  {g.schede.length} / {roster.length || "?"}
+                </span>
+              </div>
+              <div className="divide-y">
+                {g.schede.map((sc) => (
+                  <div key={sc.id} className="flex items-center gap-2 px-3 py-1.5 group hover:bg-muted/30">
+                    <div className="shrink-0 text-muted-foreground">
+                      {sc.athlete_id ? <User className="h-3.5 w-3.5" /> : <Users className="h-3.5 w-3.5" />}
+                    </div>
+                    <Link
+                      to="/coach/team/$teamId/schede/$schedaId"
+                      params={{ teamId, schedaId: sc.id }}
+                      className="flex-1 min-w-0 text-sm truncate hover:text-foreground"
+                    >
+                      {rosterName(sc.athlete_id)}
+                    </Link>
+                    <button
+                      onClick={() => onDuplicateScheda(sc)}
+                      className="p-1 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Duplica"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => onDeleteScheda(sc.id)}
+                      className="p-1 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Elimina"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {addingScheda ? (
-        <AddSchedaInline onCancel={onCancelAdd} onCreate={onCreate} nextDayLabel={DAY_LABELS[settimana.schede.length] ?? ""} />
+        <AddSchedaInline
+          isTemplate={settimana.is_template}
+          roster={roster}
+          onCancel={onCancelAdd}
+          onCreate={onCreate}
+          nextDayLabel={nextDayLabel}
+        />
       ) : (
         <button
           onClick={onOpenAdd}
@@ -731,17 +1013,22 @@ function SchedaChip({
 }
 
 function AddSchedaInline({
+  isTemplate,
+  roster,
   onCancel,
   onCreate,
   nextDayLabel,
 }: {
+  isTemplate: boolean;
+  roster: RosterMember[];
   onCancel: () => void;
-  onCreate: (p: { title: string; day_label: string; scheda_type: string }) => void;
+  onCreate: (p: { title: string; day_label: string; scheda_type: string; athlete_id: string | null }) => void;
   nextDayLabel: string;
 }) {
   const [title, setTitle] = useState("");
   const [dayLabel, setDayLabel] = useState(nextDayLabel);
   const [type, setType] = useState<string>("");
+  const [athleteValue, setAthleteValue] = useState<string>(TEAM_VALUE);
 
   return (
     <div className="mt-3 rounded-md border bg-muted/40 p-3 space-y-2">
@@ -755,13 +1042,32 @@ function AddSchedaInline({
           </SelectContent>
         </Select>
       </div>
+      {!isTemplate && (
+        <div className="grid gap-1.5">
+          <Label className="text-xs">Assegnata a</Label>
+          <Select value={athleteValue} onValueChange={setAthleteValue}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={TEAM_VALUE}>Tutta la squadra</SelectItem>
+              {roster.map((r) => (
+                <SelectItem key={r.athlete_id} value={r.athlete_id}>{r.full_name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <div className="flex justify-end gap-2">
         <Button size="sm" variant="ghost" onClick={onCancel}>Annulla</Button>
         <Button
           size="sm"
           onClick={() => {
             if (!title.trim()) return toast.error("Inserisci un nome");
-            onCreate({ title: title.trim(), day_label: dayLabel.trim(), scheda_type: type });
+            onCreate({
+              title: title.trim(),
+              day_label: dayLabel.trim(),
+              scheda_type: type,
+              athlete_id: isTemplate ? null : athleteValue === TEAM_VALUE ? null : athleteValue,
+            });
           }}
         >
           Aggiungi
