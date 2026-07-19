@@ -22,7 +22,10 @@ import {
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 
-type Scheda = Tables<"schede"> & { athlete_id?: string | null };
+type Scheda = Tables<"schede"> & {
+  athlete_id?: string | null;
+  placeholder_id?: string | null;
+};
 type Esercizio = Tables<"esercizi_catalogo">;
 type EsercizioMeta = {
   name: string;
@@ -57,7 +60,12 @@ const CATEGORIES: { value: string; label: string; color: string }[] = [
 ];
 const CAT_MAP = new Map(CATEGORIES.map((c) => [c.value, c]));
 
-type TeamAthlete = { id: string; full_name: string | null };
+type RosterEntry = {
+  key: string; // "athlete:<id>" | "placeholder:<id>"
+  kind: "athlete" | "placeholder";
+  id: string;
+  name: string;
+};
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const Route = (createFileRoute as any)(
@@ -74,7 +82,7 @@ function SchedaDetailPage() {
   const [scheda, setScheda] = useState<Scheda | null>(null);
   const [rows, setRows] = useState<SchedaEsercizio[]>([]);
   const [loadingData, setLoadingData] = useState(true);
-  const [athletes, setAthletes] = useState<TeamAthlete[]>([]);
+  const [roster, setRoster] = useState<RosterEntry[]>([]);
   const [activeTab, setActiveTab] = useState<"scheda" | "catalogo">("scheda");
   const [expandedCatalogId, setExpandedCatalogId] = useState<string | null>(null);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
@@ -143,22 +151,39 @@ function SchedaDetailPage() {
   };
 
   const fetchAthletes = async () => {
-    const { data: tm } = await supabase
-      .from("team_members")
-      .select("athlete_id")
-      .eq("team_id", teamId);
+    const [{ data: tm }, { data: ph }] = await Promise.all([
+      supabase.from("team_members").select("athlete_id").eq("team_id", teamId),
+      supabase
+        .from("atleti_placeholder")
+        .select("id, full_name")
+        .eq("team_id", teamId)
+        .is("linked_athlete_id", null),
+    ]);
     const ids = (tm ?? []).map((r) => r.athlete_id);
-    if (!ids.length) {
-      setAthletes([]);
-      return;
+    let profs: { id: string; full_name: string | null }[] = [];
+    if (ids.length) {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", ids);
+      profs = data ?? [];
     }
-    const { data: profs } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .in("id", ids);
-    setAthletes(
-      (profs ?? []).map((p) => ({ id: p.id, full_name: p.full_name })),
-    );
+    const entries: RosterEntry[] = [
+      ...profs.map((p) => ({
+        key: `athlete:${p.id}`,
+        kind: "athlete" as const,
+        id: p.id,
+        name: p.full_name || "Atleta",
+      })),
+      ...(ph ?? []).map((p) => ({
+        key: `placeholder:${p.id}`,
+        kind: "placeholder" as const,
+        id: p.id,
+        name: `${p.full_name || "Atleta"} · In attesa`,
+      })),
+    ];
+    entries.sort((a, b) => a.name.localeCompare(b.name, "it"));
+    setRoster(entries);
   };
 
   useEffect(() => {
@@ -220,6 +245,22 @@ function SchedaDetailPage() {
     const { error } = await supabase
       .from("schede")
       .update(patch as any)
+      .eq("id", schedaId);
+    if (error) toast.error(error.message);
+  };
+
+  const updateAssignment = async (value: string) => {
+    if (!scheda) return;
+    let athlete_id: string | null = null;
+    let placeholder_id: string | null = null;
+    if (value.startsWith("athlete:")) athlete_id = value.slice("athlete:".length);
+    else if (value.startsWith("placeholder:"))
+      placeholder_id = value.slice("placeholder:".length);
+    setScheda({ ...scheda, athlete_id, placeholder_id });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await supabase
+      .from("schede")
+      .update({ athlete_id, placeholder_id } as any)
       .eq("id", schedaId);
     if (error) toast.error(error.message);
   };
@@ -378,14 +419,20 @@ function SchedaDetailPage() {
                 Assegnata a
               </Label>
               <select
-                value={scheda.athlete_id ?? ""}
-                onChange={(e) => updateSchedaField("athlete_id", e.target.value || null)}
+                value={
+                  scheda.placeholder_id
+                    ? `placeholder:${scheda.placeholder_id}`
+                    : scheda.athlete_id
+                      ? `athlete:${scheda.athlete_id}`
+                      : ""
+                }
+                onChange={(e) => updateAssignment(e.target.value)}
                 className="h-9 w-full rounded-md border bg-background px-3 text-sm"
               >
                 <option value="">Tutta la squadra</option>
-                {athletes.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.full_name || "Atleta"}
+                {roster.map((r) => (
+                  <option key={r.key} value={r.key}>
+                    {r.name}
                   </option>
                 ))}
               </select>
