@@ -111,6 +111,18 @@ function RegistroPage() {
   const [showSchedaBanner, setShowSchedaBanner] = useState(false);
   const [loadingScheda, setLoadingScheda] = useState(false);
 
+  type PrSuggestion = {
+    tipoTestId: string;
+    tipoName: string;
+    unit: string;
+    higherIsBetter: boolean;
+    value: number;
+    exerciseName: string;
+  };
+  const [prSuggestions, setPrSuggestions] = useState<PrSuggestion[]>([]);
+  const [savedPrs, setSavedPrs] = useState<Set<string>>(new Set());
+  const [savingPrId, setSavingPrId] = useState<string | null>(null);
+
   // ─── Auth guard ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (loading) return;
