@@ -56,6 +56,7 @@ function TestPage() {
   const [tipi, setTipi] = useState<TipoTest[]>([]);
   const [roster, setRoster] = useState<RosterMember[]>([]);
   const [risultati, setRisultati] = useState<Risultato[]>([]);
+  const [nameByKey, setNameByKey] = useState<Map<string, string>>(new Map());
   const [loadingData, setLoadingData] = useState(true);
 
   // Filtri
@@ -104,9 +105,30 @@ function TestPage() {
           .select("*")
           .in("team_id", teamIds)
           .order("tested_at", { ascending: false });
-        setRisultati(rs ?? []);
+        const results = rs ?? [];
+        setRisultati(results);
+
+        const athleteIds = Array.from(
+          new Set(results.map((r) => r.athlete_id).filter((x): x is string => !!x)),
+        );
+        const placeholderIds = Array.from(
+          new Set(results.map((r) => r.placeholder_id).filter((x): x is string => !!x)),
+        );
+        const [{ data: profs }, { data: phs }] = await Promise.all([
+          athleteIds.length
+            ? supabase.from("profiles").select("id, full_name").in("id", athleteIds)
+            : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
+          placeholderIds.length
+            ? supabase.from("atleti_placeholder").select("id, full_name").in("id", placeholderIds)
+            : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
+        ]);
+        const map = new Map<string, string>();
+        (profs ?? []).forEach((p) => map.set(`athlete:${p.id}`, p.full_name ?? "Atleta"));
+        (phs ?? []).forEach((p) => map.set(`placeholder:${p.id}`, p.full_name ?? "Atleta"));
+        setNameByKey(map);
       } else {
         setRisultati([]);
+        setNameByKey(new Map());
       }
     } finally {
       setLoadingData(false);
@@ -194,20 +216,20 @@ function TestPage() {
   const memberLabel = useCallback(
     (r: Risultato) => {
       if (r.athlete_id) {
-        const m = roster.find(
-          (x) => x.kind === "athlete" && x.id === r.athlete_id,
-        );
-        return m?.full_name ?? "Atleta";
+        const name =
+          nameByKey.get(`athlete:${r.athlete_id}`) ??
+          roster.find((x) => x.kind === "athlete" && x.id === r.athlete_id)?.full_name;
+        return name ?? "Atleta";
       }
       if (r.placeholder_id) {
-        const m = roster.find(
-          (x) => x.kind === "placeholder" && x.id === r.placeholder_id,
-        );
-        return (m?.full_name ?? "In attesa") + " (in attesa)";
+        const name =
+          nameByKey.get(`placeholder:${r.placeholder_id}`) ??
+          roster.find((x) => x.kind === "placeholder" && x.id === r.placeholder_id)?.full_name;
+        return (name ?? "In attesa") + " (in attesa)";
       }
       return "—";
     },
-    [roster],
+    [roster, nameByKey],
   );
 
   // Filtered results
