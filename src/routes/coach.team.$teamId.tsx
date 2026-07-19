@@ -37,6 +37,9 @@ type Member = Tables<"team_members"> & {
   profile?: { full_name: string | null; avatar_url: string | null };
 };
 type Placeholder = Tables<"atleti_placeholder">;
+type RosterEntry =
+  | { kind: "member"; id: string; name: string; member: Member }
+  | { kind: "placeholder"; id: string; name: string; placeholder: Placeholder };
 
 export const Route = createFileRoute("/coach/team/$teamId")({
   component: TeamDetailLayout,
@@ -299,58 +302,49 @@ export function TeamDetailPage() {
         <section className="mt-8">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-              Roster · <span className="font-mono">{members.length}</span>
+              Roster · <span className="font-mono">{members.length + placeholders.length}</span>
             </h2>
           </div>
 
-          {members.length === 0 ? (
+          {members.length + placeholders.length === 0 ? (
             <EmptyRoster code={team.invite_code} onInvite={() => setInviteOpen(true)} />
           ) : (
             <div className="mt-4 rounded-lg border bg-card divide-y">
-              {members.map((m) => (
-                <MemberRow key={m.id} member={m} onRemove={() => removeMember(m.athlete_id)} />
-              ))}
+              {(() => {
+                const entries: RosterEntry[] = [
+                  ...members.map((m) => ({
+                    kind: "member" as const,
+                    id: m.id,
+                    name: m.profile?.full_name || "Atleta senza nome",
+                    member: m,
+                  })),
+                  ...placeholders.map((p) => ({
+                    kind: "placeholder" as const,
+                    id: p.id,
+                    name: p.full_name || "Atleta",
+                    placeholder: p,
+                  })),
+                ];
+                entries.sort((a, b) => a.name.localeCompare(b.name, "it"));
+                return entries.map((e) =>
+                  e.kind === "member" ? (
+                    <MemberRow
+                      key={`m-${e.id}`}
+                      member={e.member}
+                      onRemove={() => removeMember(e.member.athlete_id)}
+                    />
+                  ) : (
+                    <PlaceholderRow
+                      key={`p-${e.id}`}
+                      placeholder={e.placeholder}
+                      onRemove={() => removePlaceholder(e.placeholder.id)}
+                    />
+                  ),
+                );
+              })()}
             </div>
           )}
         </section>
-
-        {placeholders.length > 0 && (
-          <section className="mt-8">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-              In attesa di registrazione · <span className="font-mono">{placeholders.length}</span>
-            </h2>
-            <div className="mt-4 rounded-lg border bg-card divide-y">
-              {placeholders.map((p) => (
-                <div key={p.id} className="flex items-center justify-between gap-3 px-5 py-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="grid h-9 w-9 place-items-center rounded-full bg-secondary text-muted-foreground">
-                      <Clock className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-medium truncate">{p.full_name}</div>
-                      {p.email && (
-                        <div className="text-xs text-muted-foreground truncate">{p.email}</div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Badge className="bg-orange-500/15 text-orange-600 hover:bg-orange-500/15 border-transparent">
-                      In attesa
-                    </Badge>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removePlaceholder(p.id)}
-                      className="text-muted-foreground hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
 
         <section className="mt-8">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -465,6 +459,43 @@ function MemberRow({
       >
         <Trash2 className="h-4 w-4" />
       </Button>
+    </div>
+  );
+}
+
+function PlaceholderRow({
+  placeholder,
+  onRemove,
+}: {
+  placeholder: Placeholder;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-5 py-3">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="grid h-9 w-9 place-items-center rounded-full bg-secondary text-muted-foreground">
+          <Clock className="h-4 w-4" />
+        </div>
+        <div className="min-w-0">
+          <div className="font-medium truncate">{placeholder.full_name}</div>
+          {placeholder.email && (
+            <div className="text-xs text-muted-foreground truncate">{placeholder.email}</div>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <Badge className="bg-orange-500/15 text-orange-600 hover:bg-orange-500/15 border-transparent">
+          <Clock className="h-3 w-3 mr-1" /> In attesa
+        </Badge>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onRemove}
+          className="text-muted-foreground hover:text-destructive"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 }
