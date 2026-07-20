@@ -19,6 +19,7 @@ import { Route as AtletaRouteImport } from './routes/atleta'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CoachIndexRouteImport } from './routes/coach.index'
 import { Route as CoachTestRouteImport } from './routes/coach.test'
+import { Route as CoachTemplatesRouteImport } from './routes/coach.templates'
 import { Route as AtletaStoricoRouteImport } from './routes/atleta.storico'
 import { Route as AtletaSchedeRouteImport } from './routes/atleta.schede'
 import { Route as AtletaRegistroRouteImport } from './routes/atleta.registro'
@@ -78,6 +79,11 @@ const CoachIndexRoute = CoachIndexRouteImport.update({
 const CoachTestRoute = CoachTestRouteImport.update({
   id: '/test',
   path: '/test',
+  getParentRoute: () => CoachRoute,
+} as any)
+const CoachTemplatesRoute = CoachTemplatesRouteImport.update({
+  id: '/templates',
+  path: '/templates',
   getParentRoute: () => CoachRoute,
 } as any)
 const AtletaStoricoRoute = AtletaStoricoRouteImport.update({
@@ -146,6 +152,7 @@ export interface FileRoutesByFullPath {
   '/atleta/registro': typeof AtletaRegistroRoute
   '/atleta/schede': typeof AtletaSchedeRoute
   '/atleta/storico': typeof AtletaStoricoRoute
+  '/coach/templates': typeof CoachTemplatesRoute
   '/coach/test': typeof CoachTestRoute
   '/coach/': typeof CoachIndexRoute
   '/coach/team/$teamId': typeof CoachTeamTeamIdRouteWithChildren
@@ -167,6 +174,7 @@ export interface FileRoutesByTo {
   '/atleta/registro': typeof AtletaRegistroRoute
   '/atleta/schede': typeof AtletaSchedeRoute
   '/atleta/storico': typeof AtletaStoricoRoute
+  '/coach/templates': typeof CoachTemplatesRoute
   '/coach/test': typeof CoachTestRoute
   '/coach': typeof CoachIndexRoute
   '/coach/team/$teamId/calendario': typeof CoachTeamTeamIdCalendarioRoute
@@ -189,6 +197,7 @@ export interface FileRoutesById {
   '/atleta/registro': typeof AtletaRegistroRoute
   '/atleta/schede': typeof AtletaSchedeRoute
   '/atleta/storico': typeof AtletaStoricoRoute
+  '/coach/templates': typeof CoachTemplatesRoute
   '/coach/test': typeof CoachTestRoute
   '/coach/': typeof CoachIndexRoute
   '/coach/team/$teamId': typeof CoachTeamTeamIdRouteWithChildren
@@ -213,6 +222,7 @@ export interface FileRouteTypes {
     | '/atleta/registro'
     | '/atleta/schede'
     | '/atleta/storico'
+    | '/coach/templates'
     | '/coach/test'
     | '/coach/'
     | '/coach/team/$teamId'
@@ -234,6 +244,7 @@ export interface FileRouteTypes {
     | '/atleta/registro'
     | '/atleta/schede'
     | '/atleta/storico'
+    | '/coach/templates'
     | '/coach/test'
     | '/coach'
     | '/coach/team/$teamId/calendario'
@@ -255,6 +266,7 @@ export interface FileRouteTypes {
     | '/atleta/registro'
     | '/atleta/schede'
     | '/atleta/storico'
+    | '/coach/templates'
     | '/coach/test'
     | '/coach/'
     | '/coach/team/$teamId'
@@ -346,6 +358,13 @@ declare module '@tanstack/react-router' {
       path: '/test'
       fullPath: '/coach/test'
       preLoaderRoute: typeof CoachTestRouteImport
+      parentRoute: typeof CoachRoute
+    }
+    '/coach/templates': {
+      id: '/coach/templates'
+      path: '/templates'
+      fullPath: '/coach/templates'
+      preLoaderRoute: typeof CoachTemplatesRouteImport
       parentRoute: typeof CoachRoute
     }
     '/atleta/storico': {
@@ -459,12 +478,14 @@ const CoachTeamTeamIdRouteWithChildren = CoachTeamTeamIdRoute._addFileChildren(
 )
 
 interface CoachRouteChildren {
+  CoachTemplatesRoute: typeof CoachTemplatesRoute
   CoachTestRoute: typeof CoachTestRoute
   CoachIndexRoute: typeof CoachIndexRoute
   CoachTeamTeamIdRoute: typeof CoachTeamTeamIdRouteWithChildren
 }
 
 const CoachRouteChildren: CoachRouteChildren = {
+  CoachTemplatesRoute: CoachTemplatesRoute,
   CoachTestRoute: CoachTestRoute,
   CoachIndexRoute: CoachIndexRoute,
   CoachTeamTeamIdRoute: CoachTeamTeamIdRouteWithChildren,
@@ -485,13 +506,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

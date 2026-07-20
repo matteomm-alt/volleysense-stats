@@ -36,6 +36,7 @@ import {
   Users,
   User,
   Clock,
+  CopyPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -111,6 +112,9 @@ function PeriodiPage() {
   const [regenForPeriodo, setRegenForPeriodo] = useState<PeriodoRow | null>(null);
   const [regenConfirmText, setRegenConfirmText] = useState("");
   const [duplicateForScheda, setDuplicateForScheda] = useState<{ scheda: SchedaRow; settimane: SettimanaRow[] } | null>(null);
+  const [duplicateWeek, setDuplicateWeek] = useState<{ source: SettimanaRow; periodo: PeriodoRow } | null>(null);
+  const [duplicatePeriodo, setDuplicatePeriodo] = useState<PeriodoRow | null>(null);
+  const [duplicating, setDuplicating] = useState(false);
 
   useEffect(() => {
     if (loading) return;
@@ -593,6 +597,197 @@ function PeriodiPage() {
     }
   };
 
+  // ── Duplica settimana ────────────────────────────────────────────────────
+  const handleDuplicateWeek = async (source: SettimanaRow, targetIds: string[], replaceMode: boolean) => {
+    if (targetIds.length === 0) return;
+    setDuplicating(true);
+    try {
+      const { data: srcSchede, error: e1 } = await supabase
+        .from("schede")
+        .select("id, title, day_label, day_order, scheda_type, athlete_id, placeholder_id, description, order_index, is_template")
+        .eq("settimana_id", source.id);
+      if (e1) throw e1;
+      const srcIds = (srcSchede ?? []).map((s) => s.id);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let srcEsercizi: any[] = [];
+      if (srcIds.length) {
+        const { data, error } = await supabase
+          .from("scheda_esercizi")
+          .select("scheda_id, esercizio_id, order_index, sets, reps, load_value, load_unit, rest_seconds, tempo, rpe_target, notes")
+          .in("scheda_id", srcIds);
+        if (error) throw error;
+        srcEsercizi = data ?? [];
+      }
+
+      for (const targetId of targetIds) {
+        if (replaceMode) {
+          const { error: eDel } = await supabase
+            .from("schede")
+            .delete()
+            .eq("settimana_id", targetId)
+            .eq("is_template", false);
+          if (eDel) throw eDel;
+        }
+        if (!srcSchede || srcSchede.length === 0) continue;
+
+        const rows = srcSchede.map((s) => ({
+          team_id: teamId,
+          settimana_id: targetId,
+          title: s.title,
+          day_label: s.day_label,
+          day_order: s.day_order,
+          scheda_type: s.scheda_type,
+          description: s.description,
+          is_template: false,
+          order_index: s.order_index ?? s.day_order,
+          athlete_id: s.athlete_id,
+          placeholder_id: s.placeholder_id,
+          created_by: session?.user?.id ?? null,
+        }));
+        const { data: inserted, error: eIns } = await supabase
+          .from("schede")
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .insert(rows as any)
+          .select("id, day_order, athlete_id, placeholder_id");
+        if (eIns) throw eIns;
+
+        const keyOf = (r: { day_order: number | null; athlete_id: string | null; placeholder_id: string | null }) => {
+          const who = r.athlete_id
+            ? `a:${r.athlete_id}`
+            : r.placeholder_id
+              ? `p:${r.placeholder_id}`
+              : "team";
+          return `${r.day_order}|${who}`;
+        };
+        const srcById = new Map(srcSchede.map((s) => [s.id, s]));
+        const insertedByKey = new Map<string, string>();
+        (inserted ?? []).forEach((r) => insertedByKey.set(keyOf(r), r.id));
+
+        const eserciziRows = srcEsercizi.flatMap((ex) => {
+          const src = srcById.get(ex.scheda_id);
+          if (!src) return [];
+          const newId = insertedByKey.get(keyOf(src));
+          if (!newId) return [];
+          const { scheda_id: _drop, ...rest } = ex;
+          return [{ ...rest, scheda_id: newId }];
+        });
+        if (eserciziRows.length > 0) {
+          const { error: eE } = await supabase
+            .from("scheda_esercizi")
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .insert(eserciziRows as any);
+          if (eE) throw eE;
+        }
+      }
+      toast.success(`Settimana copiata in ${targetIds.length} destinazioni`);
+      setDuplicateWeek(null);
+      fetchData();
+    } catch (e: unknown) {
+      toast.error((e as Error)?.message ?? "Errore duplicazione settimana");
+    } finally {
+      setDuplicating(false);
+    }
+  };
+
+  // ── Duplica periodo ──────────────────────────────────────────────────────
+  const handleDuplicatePeriodo = async (source: PeriodoRow, newName: string, newStart: string, newEnd: string) => {
+    setDuplicating(true);
+    try {
+      const { data: newP, error: e1 } = await supabase
+        .from("periodi")
+        .insert({
+          team_id: teamId,
+          name: newName,
+          start_date: newStart,
+          end_date: newEnd,
+          order_index: periodi.length,
+        })
+        .select("id")
+        .single();
+      if (e1) throw e1;
+
+      // Clone settimane structure
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const settRows = source.settimane.map((s) => ({
+        team_id: teamId,
+        periodo_id: newP.id,
+        week_number: s.week_number,
+        is_template: s.is_template,
+        load_increment_pct: s.load_increment_pct,
+      }));
+      const { data: newSett, error: e2 } = await supabase
+        .from("settimane")
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .insert(settRows as any)
+        .select("id, week_number, is_template");
+      if (e2) throw e2;
+
+      // Only clone template week schede/esercizi
+      const srcTemplate = source.settimane.find((s) => s.is_template);
+      const dstTemplate = (newSett ?? []).find((s) => s.is_template);
+      if (srcTemplate && dstTemplate) {
+        const { data: srcSch, error: eSch } = await supabase
+          .from("schede")
+          .select("id, title, day_label, day_order, scheda_type, description, order_index")
+          .eq("settimana_id", srcTemplate.id);
+        if (eSch) throw eSch;
+
+        if (srcSch && srcSch.length > 0) {
+          const srcIds = srcSch.map((s) => s.id);
+          const { data: srcEx, error: eEx } = await supabase
+            .from("scheda_esercizi")
+            .select("scheda_id, esercizio_id, order_index, sets, reps, load_value, load_unit, rest_seconds, tempo, rpe_target, notes")
+            .in("scheda_id", srcIds);
+          if (eEx) throw eEx;
+
+          const rows = srcSch.map((s) => ({
+            team_id: teamId,
+            settimana_id: dstTemplate.id,
+            title: s.title,
+            day_label: s.day_label,
+            day_order: s.day_order,
+            scheda_type: s.scheda_type,
+            description: s.description,
+            is_template: true,
+            order_index: s.order_index ?? s.day_order,
+            created_by: session?.user?.id ?? null,
+          }));
+          const { data: newSch, error: eIns } = await supabase
+            .from("schede")
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .insert(rows as any)
+            .select("id, day_order");
+          if (eIns) throw eIns;
+
+          const dstByOrder = new Map((newSch ?? []).map((r) => [r.day_order, r.id]));
+          const srcById = new Map(srcSch.map((s) => [s.id, s]));
+          const exRows = (srcEx ?? []).flatMap((ex) => {
+            const src = srcById.get(ex.scheda_id);
+            if (!src) return [];
+            const newId = dstByOrder.get(src.day_order);
+            if (!newId) return [];
+            const { scheda_id: _drop, ...rest } = ex;
+            return [{ ...rest, scheda_id: newId }];
+          });
+          if (exRows.length > 0) {
+            const { error: eE } = await supabase
+              .from("scheda_esercizi")
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              .insert(exRows as any);
+            if (eE) throw eE;
+          }
+        }
+      }
+      toast.success(`Periodo "${newName}" creato dalla copia di "${source.name}"`);
+      setDuplicatePeriodo(null);
+      fetchData();
+    } catch (e: unknown) {
+      toast.error((e as Error)?.message ?? "Errore duplicazione periodo");
+    } finally {
+      setDuplicating(false);
+    }
+  };
+
   if (loading || loadingData || !profile) {
     return (
       <div className="min-h-screen grid place-items-center">
@@ -698,6 +893,8 @@ function PeriodiPage() {
               onDelete={() => handleDeletePeriodo(p.id)}
               onGenerate={() => handleGenerateWeeks(p)}
               onRegenerate={() => { setRegenForPeriodo(p); setRegenConfirmText(""); }}
+              onDuplicatePeriodo={() => setDuplicatePeriodo(p)}
+              onDuplicateWeek={(s) => setDuplicateWeek({ source: s, periodo: p })}
               onOpenAddScheda={(sid) => setNewSchedaForSettimana(sid)}
               openAddSchedaFor={newSchedaForSettimana}
               onCancelAddScheda={() => setNewSchedaForSettimana(null)}
@@ -755,6 +952,25 @@ function PeriodiPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {duplicateWeek && (
+          <DuplicateWeekDialog
+            source={duplicateWeek.source}
+            periodo={duplicateWeek.periodo}
+            saving={duplicating}
+            onCancel={() => setDuplicateWeek(null)}
+            onConfirm={(targetIds, replaceMode) => handleDuplicateWeek(duplicateWeek.source, targetIds, replaceMode)}
+          />
+        )}
+
+        {duplicatePeriodo && (
+          <DuplicatePeriodoDialog
+            source={duplicatePeriodo}
+            saving={duplicating}
+            onCancel={() => setDuplicatePeriodo(null)}
+            onConfirm={(name, start, end) => handleDuplicatePeriodo(duplicatePeriodo, name, start, end)}
+          />
+        )}
       </main>
     </div>
   );
@@ -770,6 +986,8 @@ function PeriodoCard({
   onDelete,
   onGenerate,
   onRegenerate,
+  onDuplicatePeriodo,
+  onDuplicateWeek,
   onOpenAddScheda,
   openAddSchedaFor,
   onCancelAddScheda,
@@ -785,6 +1003,8 @@ function PeriodoCard({
   onDelete: () => void;
   onGenerate: () => void;
   onRegenerate: () => void;
+  onDuplicatePeriodo: () => void;
+  onDuplicateWeek: (source: SettimanaRow) => void;
   onOpenAddScheda: (settimanaId: string) => void;
   openAddSchedaFor: string | null;
   onCancelAddScheda: () => void;
@@ -810,6 +1030,9 @@ function PeriodoCard({
           <Button size="sm" variant="outline" onClick={onGenerate} disabled={generating}>
             {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
             Genera/aggiorna settimane
+          </Button>
+          <Button size="sm" variant="ghost" onClick={onDuplicatePeriodo} title="Duplica periodo">
+            <CopyPlus className="h-4 w-4" />
           </Button>
           <Button
             size="sm"
@@ -841,6 +1064,7 @@ function PeriodoCard({
             onDeleteScheda={onDeleteScheda}
             onDuplicateScheda={onDuplicateScheda}
             onUpdateLoad={(pct) => onUpdateLoad(s.id, pct)}
+            onDuplicateWeek={() => onDuplicateWeek(s)}
           />
         ))}
       </div>
@@ -859,6 +1083,7 @@ function SettimanaRowView({
   onDeleteScheda,
   onDuplicateScheda,
   onUpdateLoad,
+  onDuplicateWeek,
 }: {
   settimana: SettimanaRow;
   teamId: string;
@@ -870,6 +1095,7 @@ function SettimanaRowView({
   onDeleteScheda: (id: string) => void;
   onDuplicateScheda: (s: SchedaRow) => void;
   onUpdateLoad: (pct: number) => void;
+  onDuplicateWeek: () => void;
 }) {
   const [localPct, setLocalPct] = useState(settimana.load_increment_pct);
   useEffect(() => setLocalPct(settimana.load_increment_pct), [settimana.load_increment_pct]);
@@ -936,6 +1162,17 @@ function SettimanaRowView({
               onBlur={() => localPct !== settimana.load_increment_pct && onUpdateLoad(localPct)}
               className="h-7 w-20 text-xs font-mono"
             />
+            {settimana.schede.length > 0 && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={onDuplicateWeek}
+                className="h-7 px-2 gap-1 text-xs"
+                title="Duplica questa settimana in altre"
+              >
+                <CopyPlus className="h-3.5 w-3.5" /> Copia
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -1207,5 +1444,142 @@ function DuplicateSchedaForm({
         <Button size="sm" onClick={() => target && onConfirm(target, label)} disabled={!target}>Duplica</Button>
       </div>
     </div>
+  );
+}
+
+function DuplicateWeekDialog({
+  source,
+  periodo,
+  saving,
+  onCancel,
+  onConfirm,
+}: {
+  source: SettimanaRow;
+  periodo: PeriodoRow;
+  saving: boolean;
+  onCancel: () => void;
+  onConfirm: (targetIds: string[], replaceMode: boolean) => void;
+}) {
+  const targets = periodo.settimane.filter((s) => s.id !== source.id && !s.is_template);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [replaceMode, setReplaceMode] = useState(false);
+  const toggle = (id: string) => {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelected(next);
+  };
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onCancel(); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CopyPlus className="h-4 w-4" /> Duplica settimana {source.is_template ? "tipo" : source.week_number}
+          </DialogTitle>
+          <DialogDescription>
+            Copia tutte le schede e gli esercizi di questa settimana nelle settimane selezionate.
+            Gli atleti assegnati vengono preservati.
+          </DialogDescription>
+        </DialogHeader>
+        {targets.length === 0 ? (
+          <div className="text-sm text-muted-foreground text-center p-6">
+            Nessun'altra settimana disponibile nel periodo.
+          </div>
+        ) : (
+          <>
+            <div className="max-h-60 divide-y overflow-y-auto rounded-md border">
+              {targets.map((s) => (
+                <label key={s.id} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/40">
+                  <input type="checkbox" checked={selected.has(s.id)} onChange={() => toggle(s.id)} />
+                  <span className="text-sm">Settimana {s.week_number}</span>
+                  <span className="ml-auto text-xs text-muted-foreground font-mono">{s.schede.length} schede</span>
+                </label>
+              ))}
+            </div>
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" checked={replaceMode} onChange={(e) => setReplaceMode(e.target.checked)} className="mt-1" />
+              <div>
+                <div className="font-medium text-destructive">Sostituisci le schede esistenti</div>
+                <div className="text-xs text-muted-foreground">
+                  Se attivo, le schede attuali nelle settimane target vengono eliminate prima della copia.
+                </div>
+              </div>
+            </label>
+          </>
+        )}
+        <DialogFooter>
+          <Button variant="ghost" onClick={onCancel}>Annulla</Button>
+          <Button onClick={() => onConfirm(Array.from(selected), replaceMode)} disabled={saving || selected.size === 0}>
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            Duplica in {selected.size} settimane
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DuplicatePeriodoDialog({
+  source,
+  saving,
+  onCancel,
+  onConfirm,
+}: {
+  source: PeriodoRow;
+  saving: boolean;
+  onCancel: () => void;
+  onConfirm: (name: string, start: string, end: string) => void;
+}) {
+  const shiftDate = (d: string, days: number) => {
+    const dt = new Date(d);
+    dt.setDate(dt.getDate() + days);
+    return dt.toISOString().slice(0, 10);
+  };
+  const nWeeks = source.settimane.filter((s) => !s.is_template).length;
+  const shiftDays = nWeeks * 7;
+  const [name, setName] = useState(`${source.name} (copia)`);
+  const [start, setStart] = useState(shiftDate(source.end_date, 1));
+  const [end, setEnd] = useState(shiftDate(source.end_date, shiftDays));
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onCancel(); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CopyPlus className="h-4 w-4" /> Duplica periodo
+          </DialogTitle>
+          <DialogDescription>
+            Crea un nuovo periodo con la stessa struttura e la stessa settimana tipo di "{source.name}".
+            Le settimane operative saranno vuote (pronte da generare).
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Nome nuovo periodo *</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Data inizio *</Label>
+              <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Data fine *</Label>
+              <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+            </div>
+          </div>
+          <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
+            Struttura clonata: <span className="font-mono">1 settimana tipo + {nWeeks} settimane</span>.
+            La settimana tipo verrà copiata con tutti gli esercizi. Le altre settimane vengono create vuote.
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onCancel}>Annulla</Button>
+          <Button onClick={() => onConfirm(name.trim(), start, end)} disabled={saving || !name.trim() || !start || !end}>
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            Crea copia
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -587,6 +587,104 @@ export type Database = {
           },
         ]
       }
+      schede_template: {
+        Row: {
+          category: string | null
+          coach_id: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          scheda_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          coach_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          scheda_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          coach_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          scheda_type?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schede_template_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      schede_template_esercizi: {
+        Row: {
+          created_at: string
+          esercizio_id: string | null
+          id: string
+          load_unit: string | null
+          load_value: number | null
+          notes: string | null
+          order_index: number
+          reps: string | null
+          rpe_target: number | null
+          sets: number | null
+          template_id: string
+        }
+        Insert: {
+          created_at?: string
+          esercizio_id?: string | null
+          id?: string
+          load_unit?: string | null
+          load_value?: number | null
+          notes?: string | null
+          order_index?: number
+          reps?: string | null
+          rpe_target?: number | null
+          sets?: number | null
+          template_id: string
+        }
+        Update: {
+          created_at?: string
+          esercizio_id?: string | null
+          id?: string
+          load_unit?: string | null
+          load_value?: number | null
+          notes?: string | null
+          order_index?: number
+          reps?: string | null
+          rpe_target?: number | null
+          sets?: number | null
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schede_template_esercizi_esercizio_id_fkey"
+            columns: ["esercizio_id"]
+            isOneToOne: false
+            referencedRelation: "esercizi_catalogo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schede_template_esercizi_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "schede_template"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sessions: {
         Row: {
           athlete_id: string
