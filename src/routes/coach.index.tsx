@@ -27,6 +27,8 @@ import {
   CalendarRange,
   ClipboardList,
   Gauge,
+  BookMarked,
+  Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
@@ -46,6 +48,71 @@ function CoachHome() {
   const [createOpen, setCreateOpen] = useState(false);
   const [quickPeriodoOpen, setQuickPeriodoOpen] = useState(false);
   const [quickSchedaOpen, setQuickSchedaOpen] = useState(false);
+  const [globalSearch, setGlobalSearch] = useState("");
+  const [athleteMatches, setAthleteMatches] = useState<
+    { id: string; name: string; teamId: string; teamName: string; kind: "athlete" | "placeholder" }[]
+  >([]);
+
+  useEffect(() => {
+    const q = globalSearch.trim();
+    if (q.length < 2 || !teams || teams.length === 0) {
+      setAthleteMatches([]);
+      return;
+    }
+    let cancelled = false;
+    const run = async () => {
+      const teamIds = teams.map((t) => t.id);
+      const teamNameMap = new Map(teams.map((t) => [t.id, t.name]));
+      const [{ data: phs }, { data: tm }] = await Promise.all([
+        supabase
+          .from("atleti_placeholder")
+          .select("id, full_name, team_id")
+          .in("team_id", teamIds)
+          .is("linked_athlete_id", null)
+          .ilike("full_name", `%${q}%`)
+          .limit(20),
+        supabase
+          .from("team_members")
+          .select("athlete_id, team_id")
+          .in("team_id", teamIds),
+      ]);
+      const athleteIds = Array.from(new Set((tm ?? []).map((r) => r.athlete_id)));
+      let profMatches: { id: string; full_name: string | null }[] = [];
+      if (athleteIds.length) {
+        const { data } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", athleteIds)
+          .ilike("full_name", `%${q}%`)
+          .limit(20);
+        profMatches = data ?? [];
+      }
+      if (cancelled) return;
+      const matchIds = new Set(profMatches.map((p) => p.id));
+      const athleteRows = (tm ?? [])
+        .filter((r) => matchIds.has(r.athlete_id))
+        .map((r) => {
+          const p = profMatches.find((x) => x.id === r.athlete_id)!;
+          return {
+            id: p.id,
+            name: p.full_name ?? "Atleta",
+            teamId: r.team_id,
+            teamName: teamNameMap.get(r.team_id) ?? "",
+            kind: "athlete" as const,
+          };
+        });
+      const phRows = (phs ?? []).map((p) => ({
+        id: p.id,
+        name: p.full_name ?? "Atleta",
+        teamId: p.team_id,
+        teamName: teamNameMap.get(p.team_id) ?? "",
+        kind: "placeholder" as const,
+      }));
+      setAthleteMatches([...athleteRows, ...phRows].slice(0, 15));
+    };
+    const t = setTimeout(run, 250);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [globalSearch, teams]);
 
   useEffect(() => {
     if (loading) return;
@@ -142,23 +209,18 @@ function CoachHome() {
               subtitle="Aggiungi una scheda alla settimana tipo"
               onClick={() => setQuickSchedaOpen(true)}
             />
-            <Link
+            <QuickLinkCard
               to="/coach/test"
-              className="group text-left rounded-lg border bg-card p-4 flex items-center justify-between hover:bg-muted/50 transition-colors"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 group-hover:bg-primary/15 transition-colors shrink-0">
-                  <Gauge className="h-4 w-4 text-primary" />
-                </div>
-                <div className="min-w-0">
-                  <div className="font-semibold text-sm">Test atletici</div>
-                  <div className="text-xs text-muted-foreground truncate">
-                    Registra e confronta i risultati dei test
-                  </div>
-                </div>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
-            </Link>
+              icon={<Gauge className="h-4 w-4 text-primary" />}
+              title="Test atletici"
+              subtitle="Registra e confronta i risultati dei test"
+            />
+            <QuickLinkCard
+              to={"/coach/templates" as unknown as string}
+              icon={<BookMarked className="h-4 w-4 text-primary" />}
+              title="Template schede"
+              subtitle="La tua libreria di schede riutilizzabili"
+            />
           </div>
         </section>
 
@@ -183,22 +245,71 @@ function CoachHome() {
 
         {/* Teams list */}
         <section className="mt-10">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4">
-            Squadre
-          </h2>
+          <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Squadre & atleti
+            </h2>
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Cerca squadra o atleta..."
+                value={globalSearch}
+                onChange={(e) => setGlobalSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </div>
+
+          {globalSearch.trim().length >= 2 && athleteMatches.length > 0 && (
+            <div className="mb-4 rounded-lg border bg-card divide-y overflow-hidden">
+              <div className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted/40">
+                Atleti ({athleteMatches.length})
+              </div>
+              {athleteMatches.map((a) => (
+                <Link
+                  key={`${a.kind}-${a.id}`}
+                  to="/coach/team/$teamId"
+                  params={{ teamId: a.teamId }}
+                  className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/40"
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate">{a.name}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {a.teamName}{a.kind === "placeholder" ? " · In attesa" : ""}
+                    </div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                </Link>
+              ))}
+            </div>
+          )}
+
           {loadingTeams ? (
             <div className="rounded-lg border bg-card p-12 grid place-items-center">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : !teams?.length ? (
             <EmptyState onCreate={() => setCreateOpen(true)} />
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {teams.map((t) => (
-                <TeamCard key={t.id} team={t} />
-              ))}
-            </div>
-          )}
+          ) : (() => {
+            const q = globalSearch.trim().toLowerCase();
+            const list = q.length >= 2
+              ? teams.filter((t) => t.name.toLowerCase().includes(q))
+              : teams;
+            if (list.length === 0 && athleteMatches.length === 0) {
+              return (
+                <div className="rounded-lg border p-6 text-center text-sm text-muted-foreground">
+                  Nessun risultato per "{globalSearch}"
+                </div>
+              );
+            }
+            return (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {list.map((t) => (
+                  <TeamCard key={t.id} team={t} />
+                ))}
+              </div>
+            );
+          })()}
         </section>
       </main>
 
@@ -215,6 +326,37 @@ function CoachHome() {
         />
       </Dialog>
     </div>
+  );
+}
+
+function QuickLinkCard({
+  to,
+  icon,
+  title,
+  subtitle,
+}: {
+  to: string;
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <Link
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      to={to as any}
+      className="group text-left rounded-lg border bg-card p-4 flex items-center justify-between hover:bg-muted/50 transition-colors"
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 group-hover:bg-primary/15 transition-colors shrink-0">
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <div className="font-semibold text-sm">{title}</div>
+          <div className="text-xs text-muted-foreground truncate">{subtitle}</div>
+        </div>
+      </div>
+      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
+    </Link>
   );
 }
 

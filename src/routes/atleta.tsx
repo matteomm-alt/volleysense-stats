@@ -16,7 +16,7 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Loader2, Users, Plus, Calendar, Dumbbell, ChevronRight, ClipboardList, TrendingUp, HeartPulse } from "lucide-react";
+import { Loader2, Users, Plus, Calendar, Dumbbell, ChevronRight, ClipboardList, TrendingUp, HeartPulse, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -32,6 +32,37 @@ function AtletaHome() {
   const [teams, setTeams] = useState<Team[] | null>(null);
   const [loadingTeams, setLoadingTeams] = useState(true);
   const [joinOpen, setJoinOpen] = useState(false);
+  const [placeholderBanner, setPlaceholderBanner] = useState<{
+    name: string;
+    teamNames: string[];
+  } | null>(null);
+
+  useEffect(() => {
+    if (!session?.user) return;
+    const dismissKey = `vs-placeholder-welcome-${session.user.id}`;
+    if (typeof window !== "undefined" && window.localStorage.getItem(dismissKey) === "1") return;
+    (async () => {
+      const { data: linked } = await supabase
+        .from("atleti_placeholder")
+        .select("full_name, team_id, teams(name)")
+        .eq("linked_athlete_id", session.user.id);
+      if (linked && linked.length > 0) {
+        const name = linked[0].full_name ?? "";
+        const teamNames = linked
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((l: any) => l.teams?.name)
+          .filter(Boolean) as string[];
+        setPlaceholderBanner({ name, teamNames });
+      }
+    })();
+  }, [session?.user]);
+
+  const dismissBanner = () => {
+    if (session?.user && typeof window !== "undefined") {
+      window.localStorage.setItem(`vs-placeholder-welcome-${session.user.id}`, "1");
+    }
+    setPlaceholderBanner(null);
+  };
 
   useEffect(() => {
     if (loading) return;
@@ -96,6 +127,46 @@ function AtletaHome() {
         <p className="mt-2 text-muted-foreground">
           Le tue squadre, le schede e i tuoi progressi in un colpo d'occhio.
         </p>
+
+        {placeholderBanner && (
+          <div className="mt-6 rounded-lg border border-primary/30 bg-primary/5 p-4 sm:p-5">
+            <div className="flex items-start gap-3">
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/15">
+                <Sparkles className="h-4 w-4 text-primary" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-sm">Bentornato/a nel tuo profilo</div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Il tuo coach aveva già preparato una scheda per te
+                  {placeholderBanner.name ? <> come <strong>{placeholderBanner.name}</strong></> : null}
+                  {placeholderBanner.teamNames.length > 0 && (
+                    <> in <strong>{placeholderBanner.teamNames.join(", ")}</strong></>
+                  )}
+                  . Trovi già le schede assegnate, lo storico e i risultati dei test collegati al tuo account.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Link to={"/atleta/schede" as any}>
+                    <Button size="sm" variant="outline">
+                      <ClipboardList className="h-4 w-4" /> Vedi le schede
+                    </Button>
+                  </Link>
+                  <Link to={"/atleta/storico" as any}>
+                    <Button size="sm" variant="ghost">Storico</Button>
+                  </Link>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={dismissBanner}
+                className="shrink-0 text-muted-foreground"
+                aria-label="Chiudi"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Teams */}
         <section className="mt-8">

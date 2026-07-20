@@ -18,9 +18,21 @@ import {
   X,
   ListChecks,
   BookOpen,
+  BookMarked,
+  Layers,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
+import { SaveAsTemplateDialog, ApplyTemplateDialog } from "@/components/TemplateDialogs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 type Scheda = Tables<"schede"> & {
   athlete_id?: string | null;
@@ -104,6 +116,9 @@ function SchedaDetailPage() {
   const [editRpe, setEditRpe] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
+  const [applyTemplateOpen, setApplyTemplateOpen] = useState(false);
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
 
   useEffect(() => {
     if (loading) return;
@@ -395,6 +410,28 @@ function SchedaDetailPage() {
             <h1 className="truncate text-2xl font-semibold tracking-tight">
               {scheda.title}
             </h1>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSaveTemplateOpen(true)}
+                disabled={rows.length === 0}
+                title={rows.length === 0 ? "Aggiungi esercizi prima di salvare" : ""}
+              >
+                <BookMarked className="h-4 w-4" /> Salva come template
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setApplyTemplateOpen(true)}>
+                <Layers className="h-4 w-4" /> Applica template
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setBulkAssignOpen(true)}
+                disabled={roster.length === 0}
+              >
+                <Users className="h-4 w-4" /> Duplica per più atleti
+              </Button>
+            </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[520px]">
             <div className="flex min-w-0 flex-col gap-1">
@@ -746,7 +783,192 @@ function SchedaDetailPage() {
           </section>
         </div>
       </main>
+
+      {session?.user && (
+        <SaveAsTemplateDialog
+          open={saveTemplateOpen}
+          onOpenChange={setSaveTemplateOpen}
+          schedaId={schedaId}
+          coachId={session.user.id}
+          defaultName={scheda.title}
+          defaultDescription={scheda.description}
+          defaultType={scheda.scheda_type}
+        />
+      )}
+      {session?.user && (
+        <ApplyTemplateDialog
+          open={applyTemplateOpen}
+          onOpenChange={setApplyTemplateOpen}
+          schedaId={schedaId}
+          coachId={session.user.id}
+          currentRowsCount={rows.length}
+          onApplied={fetchData}
+        />
+      )}
+      <BulkAssignDialog
+        open={bulkAssignOpen}
+        onOpenChange={setBulkAssignOpen}
+        sourceScheda={scheda}
+        teamId={teamId}
+        roster={roster}
+        rows={rows}
+        createdBy={session?.user?.id ?? null}
+        onDone={fetchData}
+      />
     </div>
+  );
+}
+
+function BulkAssignDialog({
+  open,
+  onOpenChange,
+  sourceScheda,
+  teamId,
+  roster,
+  rows,
+  createdBy,
+  onDone,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  sourceScheda: Scheda;
+  teamId: string;
+  roster: RosterEntry[];
+  rows: SchedaEsercizio[];
+  createdBy: string | null;
+  onDone: () => void;
+}) {
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) setSelected(new Set());
+  }, [open]);
+
+  const toggle = (key: string) => {
+    const next = new Set(selected);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    setSelected(next);
+  };
+
+  const selectAll = () => setSelected(new Set(roster.map((r) => r.key)));
+  const clearAll = () => setSelected(new Set());
+
+  const handleConfirm = async () => {
+    if (selected.size === 0) return;
+    if (!sourceScheda.settimana_id) {
+      toast.error("Scheda senza settimana");
+      return;
+    }
+    setSaving(true);
+    try {
+      const entries = roster.filter((r) => selected.has(r.key));
+      const newSchede = entries.map((entry) => ({
+        team_id: teamId,
+        settimana_id: sourceScheda.settimana_id,
+        title: sourceScheda.title,
+        day_label: sourceScheda.day_label,
+        day_order: sourceScheda.day_order,
+        scheda_type: sourceScheda.scheda_type,
+        description: sourceScheda.description,
+        is_template: sourceScheda.is_template,
+        order_index: sourceScheda.order_index,
+        athlete_id: entry.kind === "athlete" ? entry.id : null,
+        placeholder_id: entry.kind === "placeholder" ? entry.id : null,
+        created_by: createdBy,
+      }));
+      const { data: inserted, error: eIns } = await supabase
+        .from("schede")
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .insert(newSchede as any)
+        .select("id, athlete_id, placeholder_id");
+      if (eIns) throw eIns;
+
+      if (rows.length > 0 && inserted && inserted.length > 0) {
+        const eserciziRows = inserted.flatMap((s) =>
+          rows.map((r) => ({
+            scheda_id: s.id,
+            esercizio_id: r.esercizio_id,
+            order_index: r.order_index,
+            sets: r.sets,
+            reps: r.reps,
+            load_value: r.load_value,
+            load_unit: r.load_unit,
+            rpe_target: r.rpe_target,
+            notes: r.notes,
+          })),
+        );
+        const { error: eE } = await supabase
+          .from("scheda_esercizi")
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .insert(eserciziRows as any);
+        if (eE) throw eE;
+      }
+      toast.success(`Scheda duplicata per ${inserted?.length ?? 0} atleti`);
+      onOpenChange(false);
+      onDone();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Users className="h-4 w-4" /> Duplica scheda per più atleti
+          </DialogTitle>
+          <DialogDescription>
+            Verrà creata una copia personale di questa scheda per ogni atleta selezionato,
+            nella stessa settimana. Utile per personalizzazioni successive.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">
+            {selected.size} / {roster.length} selezionati
+          </span>
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={selectAll}>Tutti</Button>
+            <Button variant="ghost" size="sm" onClick={clearAll}>Nessuno</Button>
+          </div>
+        </div>
+
+        <div className="max-h-72 divide-y overflow-y-auto rounded-md border">
+          {roster.length === 0 ? (
+            <div className="p-6 text-center text-sm text-muted-foreground">
+              Nessun atleta nel roster
+            </div>
+          ) : (
+            roster.map((r) => (
+              <label
+                key={r.key}
+                className="flex cursor-pointer items-center gap-3 px-4 py-2.5 hover:bg-muted/50"
+              >
+                <input
+                  type="checkbox"
+                  checked={selected.has(r.key)}
+                  onChange={() => toggle(r.key)}
+                />
+                <span className="text-sm">{r.name}</span>
+              </label>
+            ))
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Annulla</Button>
+          <Button onClick={handleConfirm} disabled={saving || selected.size === 0}>
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            Crea {selected.size} schede
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
