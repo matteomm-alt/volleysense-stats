@@ -1446,3 +1446,140 @@ function DuplicateSchedaForm({
     </div>
   );
 }
+
+function DuplicateWeekDialog({
+  source,
+  periodo,
+  saving,
+  onCancel,
+  onConfirm,
+}: {
+  source: SettimanaRow;
+  periodo: PeriodoRow;
+  saving: boolean;
+  onCancel: () => void;
+  onConfirm: (targetIds: string[], replaceMode: boolean) => void;
+}) {
+  const targets = periodo.settimane.filter((s) => s.id !== source.id && !s.is_template);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [replaceMode, setReplaceMode] = useState(false);
+  const toggle = (id: string) => {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelected(next);
+  };
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onCancel(); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CopyPlus className="h-4 w-4" /> Duplica settimana {source.is_template ? "tipo" : source.week_number}
+          </DialogTitle>
+          <DialogDescription>
+            Copia tutte le schede e gli esercizi di questa settimana nelle settimane selezionate.
+            Gli atleti assegnati vengono preservati.
+          </DialogDescription>
+        </DialogHeader>
+        {targets.length === 0 ? (
+          <div className="text-sm text-muted-foreground text-center p-6">
+            Nessun'altra settimana disponibile nel periodo.
+          </div>
+        ) : (
+          <>
+            <div className="max-h-60 divide-y overflow-y-auto rounded-md border">
+              {targets.map((s) => (
+                <label key={s.id} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/40">
+                  <input type="checkbox" checked={selected.has(s.id)} onChange={() => toggle(s.id)} />
+                  <span className="text-sm">Settimana {s.week_number}</span>
+                  <span className="ml-auto text-xs text-muted-foreground font-mono">{s.schede.length} schede</span>
+                </label>
+              ))}
+            </div>
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" checked={replaceMode} onChange={(e) => setReplaceMode(e.target.checked)} className="mt-1" />
+              <div>
+                <div className="font-medium text-destructive">Sostituisci le schede esistenti</div>
+                <div className="text-xs text-muted-foreground">
+                  Se attivo, le schede attuali nelle settimane target vengono eliminate prima della copia.
+                </div>
+              </div>
+            </label>
+          </>
+        )}
+        <DialogFooter>
+          <Button variant="ghost" onClick={onCancel}>Annulla</Button>
+          <Button onClick={() => onConfirm(Array.from(selected), replaceMode)} disabled={saving || selected.size === 0}>
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            Duplica in {selected.size} settimane
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DuplicatePeriodoDialog({
+  source,
+  saving,
+  onCancel,
+  onConfirm,
+}: {
+  source: PeriodoRow;
+  saving: boolean;
+  onCancel: () => void;
+  onConfirm: (name: string, start: string, end: string) => void;
+}) {
+  const shiftDate = (d: string, days: number) => {
+    const dt = new Date(d);
+    dt.setDate(dt.getDate() + days);
+    return dt.toISOString().slice(0, 10);
+  };
+  const nWeeks = source.settimane.filter((s) => !s.is_template).length;
+  const shiftDays = nWeeks * 7;
+  const [name, setName] = useState(`${source.name} (copia)`);
+  const [start, setStart] = useState(shiftDate(source.end_date, 1));
+  const [end, setEnd] = useState(shiftDate(source.end_date, shiftDays));
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onCancel(); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CopyPlus className="h-4 w-4" /> Duplica periodo
+          </DialogTitle>
+          <DialogDescription>
+            Crea un nuovo periodo con la stessa struttura e la stessa settimana tipo di "{source.name}".
+            Le settimane operative saranno vuote (pronte da generare).
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Nome nuovo periodo *</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Data inizio *</Label>
+              <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Data fine *</Label>
+              <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+            </div>
+          </div>
+          <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
+            Struttura clonata: <span className="font-mono">1 settimana tipo + {nWeeks} settimane</span>.
+            La settimana tipo verrà copiata con tutti gli esercizi. Le altre settimane vengono create vuote.
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onCancel}>Annulla</Button>
+          <Button onClick={() => onConfirm(name.trim(), start, end)} disabled={saving || !name.trim() || !start || !end}>
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            Crea copia
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
